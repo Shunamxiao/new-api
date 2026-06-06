@@ -18,10 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
 import { CherryStudio } from '@lobehub/icons'
-import { ArrowRight, BookOpen } from 'lucide-react'
+import { ArrowRight, BookOpen, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
+import {
+  getDefaultApiBaseUrl,
+  parseHomeContactConfig,
+} from '../../contact-config'
 import { HeroTerminalDemo } from '../hero-terminal-demo'
 
 interface HeroProps {
@@ -48,6 +53,32 @@ export function Hero(props: HeroProps) {
   const { status } = useStatus()
   const docsUrl =
     (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
+  const heroBadge =
+    (status?.home_hero_badge as string | undefined)?.trim() ||
+    t('Powered by New API')
+  const heroTitle =
+    (status?.home_hero_title as string | undefined)?.trim() ||
+    t('Unified API Gateway for')
+  const heroHighlight =
+    (status?.home_hero_highlight as string | undefined)?.trim() ||
+    t('Vast Range of AI Models')
+  const heroDescription =
+    (status?.home_hero_description as string | undefined)?.trim() ||
+    t(
+      'Access a vast selection of models via a standard, unified API protocol. Power AI applications, manage digital assets, and connect the Future.'
+    )
+  const endpointConfig = parseHomeContactConfig(status?.home_contact_config, {
+    apiBaseUrl: getDefaultApiBaseUrl(status?.server_address as string),
+  })
+
+  const handleCopyApiBaseUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(endpointConfig.apiBaseUrl)
+      toast.success(t('API Base URL copied'))
+    } catch {
+      toast.error(t('Copy failed'))
+    }
+  }
 
   const renderDocsButton = () => {
     const isExternal = docsUrl.startsWith('http')
@@ -109,31 +140,60 @@ export function Hero(props: HeroProps) {
               <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75' />
               <span className='relative inline-flex size-1.5 rounded-full bg-blue-500 dark:bg-blue-400' />
             </span>
-            <span>{t('AI Application Infrastructure Foundation')}</span>
+            <span>{heroBadge}</span>
           </div>
 
           <h1
             className='landing-animate-fade-up text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-bold tracking-tight'
             style={{ animationDelay: '60ms' }}
           >
-            {t('Unified API Gateway for')}
+            {heroTitle}
             <br />
             <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-              {t('Vast Range of AI Models')}
+              {heroHighlight}
             </span>
           </h1>
           <p
             className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-xl text-base leading-relaxed opacity-0 md:text-[15px]'
             style={{ animationDelay: '120ms' }}
           >
-            {t(
-              'Access a vast selection of models via a standard, unified API protocol. Power AI applications, manage digital assets, and connect the Future.'
-            )}
+            {heroDescription}
           </p>
 
           <div
+            className='landing-animate-fade-up mt-6 w-full max-w-xl opacity-0'
+            style={{ animationDelay: '160ms' }}
+          >
+            <div className='rounded-lg border border-border/60 bg-background/70 p-3 shadow-[0_18px_60px_-46px_rgba(15,23,42,0.75)] backdrop-blur-md dark:border-cyan-300/15 dark:bg-slate-950/45 dark:shadow-[0_18px_80px_-48px_rgba(56,189,248,0.65)]'>
+              <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
+                <div className='min-w-0'>
+                  <div className='text-muted-foreground text-[10px] font-semibold tracking-widest uppercase'>
+                    {t('API Base URL')}
+                  </div>
+                  <div className='mt-1 font-mono text-sm font-semibold break-all text-foreground'>
+                    {endpointConfig.apiBaseUrl}
+                  </div>
+                </div>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  className='shrink-0'
+                  onClick={handleCopyApiBaseUrl}
+                >
+                  <Copy className='size-3.5' />
+                  {t('Copy')}
+                </Button>
+              </div>
+              <div className='mt-3 inline-flex rounded-md border border-cyan-300/20 bg-cyan-300/8 px-2.5 py-1 font-mono text-xs text-cyan-700 dark:text-cyan-100'>
+                {endpointConfig.apiEndpoint}
+              </div>
+            </div>
+          </div>
+
+          <div
             className='landing-animate-fade-up mt-8 flex flex-wrap items-center gap-3 opacity-0'
-            style={{ animationDelay: '180ms' }}
+            style={{ animationDelay: '220ms' }}
           >
             {props.isAuthenticated ? (
               <>
@@ -170,7 +230,7 @@ export function Hero(props: HeroProps) {
           {/* Supported Apps (参考图二样式，进行卡片化和信息扩充设计，增加视觉高度) */}
           <div
             className='landing-animate-fade-up mt-10 w-full max-w-xl opacity-0'
-            style={{ animationDelay: '240ms' }}
+            style={{ animationDelay: '280ms' }}
           >
             <div className='mb-4 flex flex-col gap-1'>
               <span className='text-muted-foreground/50 text-[10px] font-bold tracking-[0.15em] uppercase'>

@@ -92,6 +92,11 @@ export interface SystemStatus {
     version?: string
     system_name?: string
     logo?: string
+    home_hero_badge?: string
+    home_hero_title?: string
+    home_hero_highlight?: string
+    home_hero_description?: string
+    home_contact_config?: string
     github_oauth?: boolean
     github_client_id?: string
     discord_oauth?: boolean
@@ -135,6 +140,11 @@ export interface SystemStatus {
   version?: string
   system_name?: string
   logo?: string
+  home_hero_badge?: string
+  home_hero_title?: string
+  home_hero_highlight?: string
+  home_hero_description?: string
+  home_contact_config?: string
   github_oauth?: boolean
   github_client_id?: string
   discord_oauth?: boolean

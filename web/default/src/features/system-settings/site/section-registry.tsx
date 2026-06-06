@@ -28,6 +28,7 @@ import { NoticeSection } from '../maintenance/notice-section'
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { ContactSection } from './contact-section'
 
 const SITE_SECTIONS = [
   {
@@ -44,6 +45,10 @@ const SITE_SECTIONS = [
           Footer: settings.Footer,
           About: settings.About,
           HomePageContent: settings.HomePageContent,
+          HomeHeroBadge: settings.HomeHeroBadge,
+          HomeHeroTitle: settings.HomeHeroTitle,
+          HomeHeroHighlight: settings.HomeHeroHighlight,
+          HomeHeroDescription: settings.HomeHeroDescription,
           ServerAddress: settings.ServerAddress,
           legal: {
             user_agreement: settings['legal.user_agreement'],
@@ -58,6 +63,13 @@ const SITE_SECTIONS = [
     titleKey: 'System Notice',
     build: (settings: SiteSettings) => (
       <NoticeSection defaultValue={settings.Notice ?? ''} />
+    ),
+  },
+  {
+    id: 'contact',
+    titleKey: 'Contact Us',
+    build: (settings: SiteSettings) => (
+      <ContactSection defaultValue={settings.HomeContactConfig ?? ''} />
     ),
   },
   {

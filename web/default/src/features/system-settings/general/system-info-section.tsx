@@ -61,6 +61,10 @@ const _systemInfoSchema = z.object({
   Footer: z.string().optional(),
   About: z.string().optional(),
   HomePageContent: z.string().optional(),
+  HomeHeroBadge: z.string().optional(),
+  HomeHeroTitle: z.string().optional(),
+  HomeHeroHighlight: z.string().optional(),
+  HomeHeroDescription: z.string().optional(),
   legal: z.object({
     user_agreement: z.string().optional(),
     privacy_policy: z.string().optional(),
@@ -93,6 +97,10 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     Footer: normalizeValue(defaultValues.Footer),
     About: normalizeValue(defaultValues.About),
     HomePageContent: normalizeValue(defaultValues.HomePageContent),
+    HomeHeroBadge: normalizeValue(defaultValues.HomeHeroBadge),
+    HomeHeroTitle: normalizeValue(defaultValues.HomeHeroTitle),
+    HomeHeroHighlight: normalizeValue(defaultValues.HomeHeroHighlight),
+    HomeHeroDescription: normalizeValue(defaultValues.HomeHeroDescription),
     legal: {
       user_agreement: normalizeValue(defaultValues.legal?.user_agreement),
       privacy_policy: normalizeValue(defaultValues.legal?.privacy_policy),
@@ -111,6 +119,10 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     Footer: z.string().optional(),
     About: z.string().optional(),
     HomePageContent: z.string().optional(),
+    HomeHeroBadge: z.string().optional(),
+    HomeHeroTitle: z.string().optional(),
+    HomeHeroHighlight: z.string().optional(),
+    HomeHeroDescription: z.string().optional(),
     legal: z.object({
       user_agreement: z.string().optional(),
       privacy_policy: z.string().optional(),
@@ -305,6 +317,106 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
               />
 
               <SettingsFormGridItem span='full'>
+                <div className='border-border/60 bg-muted/20 rounded-lg border p-4'>
+                  <div className='mb-4 space-y-1'>
+                    <h3 className='text-sm font-medium'>
+                      {t('Home Hero Copy')}
+                    </h3>
+                    <p className='text-muted-foreground text-sm'>
+                      {t(
+                        'Configure the default home page headline copy without replacing the full home page.'
+                      )}
+                    </p>
+                  </div>
+
+                  <SettingsFormGrid>
+                    <FormField
+                      control={form.control}
+                      name='HomeHeroBadge'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Hero Badge')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={t('Powered by New API')}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('Small label above the home page headline')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='HomeHeroTitle'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Hero Title')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={t('Unified API Gateway for')}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('First line of the home page headline')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='HomeHeroHighlight'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Hero Highlight')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder={t('Vast Range of AI Models')}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('Highlighted second line of the headline')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name='HomeHeroDescription'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Hero Description')}</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              placeholder={t(
+                                'Access a vast selection of models via a standard, unified API protocol. Power AI applications, manage digital assets, and connect the Future.'
+                              )}
+                              rows={4}
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t('Description below the home page headline')}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </SettingsFormGrid>
+                </div>
+              </SettingsFormGridItem>
+
+              <SettingsFormGridItem span='full'>
                 <FormField
                   control={form.control}
                   name='HomePageContent'
@@ -320,7 +432,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       </FormControl>
                       <FormDescription>
                         {t(
-                          'Content displayed on the home page (supports Markdown)'
+                          'Advanced custom home page content. When filled, it replaces the default home page and supports a full URL, HTML, or Markdown.'
                         )}
                       </FormDescription>
                       <FormMessage />

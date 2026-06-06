@@ -8,6 +8,29 @@
     <!-- Primary Meta Tags -->
     <title>New API</title>
     <meta name="title" content="New API" />
+    <script>
+      ;(() => {
+        try {
+          const applyTitle = (name) => {
+            if (!name || typeof name !== 'string') return false
+            document.title = name
+            const metaTitle = document.querySelector('meta[name="title"]')
+            if (metaTitle) metaTitle.setAttribute('content', name)
+            return true
+          }
+
+          const status = JSON.parse(localStorage.getItem('status') || 'null')
+          if (applyTitle(status?.system_name)) return
+
+          const storedConfig = JSON.parse(
+            localStorage.getItem('system-config-storage') || 'null'
+          )
+          applyTitle(storedConfig?.state?.config?.systemName)
+        } catch {
+          // 标题缓存读取失败时保留静态默认标题
+        }
+      })()
+    </script>
     <meta
       name="description"
       content="Unified AI API gateway and admin dashboard."

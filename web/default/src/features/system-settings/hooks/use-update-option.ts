@@ -24,6 +24,14 @@ import type { UpdateOptionRequest } from '../types'
 
 // Configuration keys that require status refresh
 const STATUS_RELATED_KEYS = [
+  'SystemName',
+  'Logo',
+  'Footer',
+  'HomeHeroBadge',
+  'HomeHeroTitle',
+  'HomeHeroHighlight',
+  'HomeHeroDescription',
+  'HomeContactConfig',
   'theme.frontend',
   'HeaderNavModules',
   'SidebarModulesAdmin',
@@ -38,6 +46,53 @@ const STATUS_RELATED_KEYS = [
   'general_setting.custom_currency_exchange_rate',
 ]
 
+function syncStatusCache(key: string, value: unknown): void {
+  try {
+    const raw = window.localStorage.getItem('status')
+    const status =
+      raw && typeof raw === 'string'
+        ? (JSON.parse(raw) as Record<string, unknown>)
+        : {}
+
+    if (key === 'SystemName') {
+      status.system_name = value
+      window.localStorage.setItem('status', JSON.stringify(status))
+      return
+    }
+
+    if (key === 'Logo') {
+      status.logo = value
+      window.localStorage.setItem('status', JSON.stringify(status))
+      return
+    }
+
+    if (key === 'Footer') {
+      status.footer_html = value
+      window.localStorage.setItem('status', JSON.stringify(status))
+      return
+    }
+
+    const heroStatusKeys: Record<string, string> = {
+      HomeHeroBadge: 'home_hero_badge',
+      HomeHeroTitle: 'home_hero_title',
+      HomeHeroHighlight: 'home_hero_highlight',
+      HomeHeroDescription: 'home_hero_description',
+      HomeContactConfig: 'home_contact_config',
+    }
+
+    const heroStatusKey = heroStatusKeys[key]
+    if (heroStatusKey) {
+      status[heroStatusKey] = value
+      window.localStorage.setItem('status', JSON.stringify(status))
+      return
+    }
+
+    window.localStorage.removeItem('status')
+  } catch {
+    /* empty */
+  }
+}
+
 export function useUpdateOption() {
   const queryClient = useQueryClient()
 
@@ -51,11 +106,7 @@ export function useUpdateOption() {
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.includes(variables.key)) {
           queryClient.invalidateQueries({ queryKey: ['status'] })
-          try {
-            window.localStorage.removeItem('status')
-          } catch {
-            /* empty */
-          }
+          syncStatusCache(variables.key, variables.value)
         }
 
         toast.success(i18next.t('Setting updated successfully'))

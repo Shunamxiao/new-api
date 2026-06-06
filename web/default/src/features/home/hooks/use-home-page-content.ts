@@ -24,6 +24,20 @@ import type { HomePageContentResult } from '../types'
 
 const STORAGE_KEY = 'home_page_content'
 
+function hasRichContentSyntax(content: string): boolean {
+  const trimmed = content.trim()
+  if (!trimmed) return false
+
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) return true
+  if (/^#{1,6}\s+\S/m.test(trimmed)) return true
+  if (/^[-*+]\s+\S/m.test(trimmed)) return true
+  if (/^\d+\.\s+\S/m.test(trimmed)) return true
+  if (/```[\s\S]*```/.test(trimmed)) return true
+  if (/\[[^\]]+\]\([^)]+\)/.test(trimmed)) return true
+
+  return trimmed.includes('\n\n')
+}
+
 /**
  * Hook to load and manage custom home page content
  * Supports both Markdown/HTML content and iframe URLs
@@ -83,5 +97,10 @@ export function useHomePageContent(): HomePageContentResult {
     // not a URL
   }
 
-  return { content, isLoaded, isUrl }
+  return {
+    content,
+    isLoaded,
+    isUrl,
+    shouldRenderCustom: isUrl || hasRichContentSyntax(content),
+  }
 }

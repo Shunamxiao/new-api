@@ -32,6 +32,12 @@ const defaultSiteSettings: SiteSettings = {
   Footer: '',
   About: '',
   HomePageContent: '',
+  HomeHeroBadge: '该系统由 New API 驱动',
+  HomeHeroTitle: '统一 API 网关，服务于',
+  HomeHeroHighlight: '海量 AI 模型',
+  HomeHeroDescription:
+    '通过标准统一的 API 协议接入丰富模型，支撑 AI 应用构建、数字资产管理与未来连接。',
+  HomeContactConfig: '',
   ServerAddress: '',
   'legal.user_agreement': '',
   'legal.privacy_policy': '',

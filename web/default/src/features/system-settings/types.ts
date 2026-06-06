@@ -64,6 +64,11 @@ export type SiteSettings = {
   Footer: string
   About: string
   HomePageContent: string
+  HomeHeroBadge: string
+  HomeHeroTitle: string
+  HomeHeroHighlight: string
+  HomeHeroDescription: string
+  HomeContactConfig: string
   ServerAddress: string
   'legal.user_agreement': string
   'legal.privacy_policy': string

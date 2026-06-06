@@ -21,14 +21,15 @@ import { useAuthStore } from '@/stores/auth-store'
 import { Markdown } from '@/components/ui/markdown'
 import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
-import { CTA, Features, Hero, HowItWorks, Stats } from './components'
+import { CTA, Features, Hero, HowItWorks } from './components'
+import { HomeCosmicBackground } from './components/home-cosmic-background'
 import { useHomePageContent } from './hooks'
 
 export function Home() {
   const { t } = useTranslation()
   const { auth } = useAuthStore()
   const isAuthenticated = !!auth.user
-  const { content, isLoaded, isUrl } = useHomePageContent()
+  const { content, isLoaded, isUrl, shouldRenderCustom } = useHomePageContent()
 
   if (!isLoaded) {
     return (
@@ -40,7 +41,7 @@ export function Home() {
     )
   }
 
-  if (content) {
+  if (shouldRenderCustom) {
     return (
       <PublicLayout showMainContainer={false}>
         <main className='overflow-x-hidden'>
@@ -62,12 +63,14 @@ export function Home() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <Hero isAuthenticated={isAuthenticated} />
-      <Stats />
-      <Features />
-      <HowItWorks />
-      <CTA isAuthenticated={isAuthenticated} />
-      <Footer />
+      <main className='relative overflow-hidden'>
+        <HomeCosmicBackground />
+        <Hero isAuthenticated={isAuthenticated} />
+        <HowItWorks />
+        <Features />
+        <CTA isAuthenticated={isAuthenticated} />
+        <Footer />
+      </main>
     </PublicLayout>
   )
 }

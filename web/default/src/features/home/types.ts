@@ -35,5 +35,6 @@ export interface HomePageContentResponse {
 export interface HomePageContentResult {
   content: string
   isLoaded: boolean
+  shouldRenderCustom: boolean
   isUrl: boolean
 }

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect, useRef, type ReactNode } from 'react'
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 
 type AccentTone = 'emerald' | 'amber' | 'blue' | 'violet'
@@ -162,6 +162,8 @@ const API_DEMOS: ApiDemoConfig[] = [
 
 const CYCLE_INTERVAL = 4500
 const TRANSITION_MS = 220
+const REQUEST_TYPE_SPEED_MS = 9
+const RESPONSE_TYPE_SPEED_MS = 34
 
 interface HeroTerminalDemoProps {
   className?: string
@@ -170,12 +172,12 @@ interface HeroTerminalDemoProps {
 export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [transitioning, setTransitioning] = useState(false)
+  const reduceMotion = usePrefersReducedMotion()
   const intervalRef = useRef<ReturnType<typeof setInterval>>(undefined)
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
-    if (mq.matches) return
+    if (reduceMotion) return
 
     intervalRef.current = setInterval(() => {
       setTransitioning(true)
@@ -189,7 +191,7 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
       if (intervalRef.current) clearInterval(intervalRef.current)
       if (timeoutRef.current) clearTimeout(timeoutRef.current)
     }
-  }, [])
+  }, [reduceMotion])
 
   const handleSelect = (index: number) => {
     if (index === activeIndex) return
@@ -214,6 +216,25 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
           'dark:border-white/[0.06] dark:bg-[#0b0f17]/95 dark:shadow-[0_20px_60px_-25px_rgba(0,0,0,0.7)]'
         )}
       >
+        <style>
+          {`
+            @keyframes home-byte-hop {
+              0%, 100% { opacity: 1; transform: translateY(0); filter: none; }
+              42% { opacity: .55; transform: translateY(-3px); filter: drop-shadow(0 0 5px currentColor); }
+              68% { opacity: .95; transform: translateY(1px); }
+            }
+            @keyframes home-code-caret {
+              0%, 45% { opacity: 1; }
+              46%, 100% { opacity: 0; }
+            }
+            @media (prefers-reduced-motion: reduce) {
+              .home-byte-hop,
+              .home-code-caret {
+                animation: none !important;
+              }
+            }
+          `}
+        </style>
         {/* Tab strip */}
         <div
           className={cn(
@@ -275,10 +296,18 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
         {/* Body — fixed rows so neither block shifts when switching demos */}
         <div className='grid h-[400px] grid-rows-[235px_minmax(0,1fr)] font-mono text-[12.5px] leading-[1.55]'>
           {/* Request */}
-          <RequestBlock demo={demo} transitioning={transitioning} />
+          <RequestBlock
+            demo={demo}
+            transitioning={transitioning}
+            reduceMotion={reduceMotion}
+          />
 
           {/* Response */}
-          <ResponseBlock demo={demo} transitioning={transitioning} />
+          <ResponseBlock
+            demo={demo}
+            transitioning={transitioning}
+            reduceMotion={reduceMotion}
+          />
         </div>
 
         {/* Footer metrics */}
@@ -315,8 +344,19 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
   )
 }
 
-function RequestBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
-  const { demo, transitioning } = props
+function RequestBlock(props: {
+  demo: ApiDemoConfig
+  transitioning: boolean
+  reduceMotion: boolean
+}) {
+  const { demo, transitioning, reduceMotion } = props
+  const requestText = useMemo(() => formatRequestText(demo), [demo])
+  const typedRequest = useTypewriterText({
+    text: requestText,
+    speedMs: REQUEST_TYPE_SPEED_MS,
+    disabled: reduceMotion || transitioning,
+  })
+  const lines = typedRequest.value.split('\n')
 
   return (
     <div className='relative px-5 py-4'>
@@ -327,35 +367,32 @@ function RequestBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
           transitioning ? 'opacity-0' : 'opacity-100'
         )}
       >
-        <CodeLine>
-          <Command>curl</Command> <Flag>-X</Flag> <Flag>POST</Flag>{' '}
-          <StringText>&quot;{demo.endpoint}&quot;</StringText>{' '}
-          <Muted>{'\\'}</Muted>
-        </CodeLine>
-        {demo.headers.map((header) => (
-          <CodeLine key={header} indent={2}>
-            <Flag>-H</Flag> <StringText>{header}</StringText>{' '}
-            <Muted>{'\\'}</Muted>
+        {lines.map((line, index) => (
+          <CodeLine key={`${demo.id}-${index}`}>
+            {renderRequestLine(line)}
+            {typedRequest.isTyping && index === lines.length - 1 ? (
+              <CodeCaret />
+            ) : null}
           </CodeLine>
         ))}
-        <CodeLine indent={2}>
-          <Flag>-d</Flag> <StringText>&apos;{'{'}</StringText>
-        </CodeLine>
-        {demo.request.map((line, i) => (
-          <CodeLine key={i} indent={4}>
-            {renderJsonLine(line)}
-          </CodeLine>
-        ))}
-        <CodeLine indent={2}>
-          <StringText>{'}'}&apos;</StringText>
-        </CodeLine>
       </div>
     </div>
   )
 }
 
-function ResponseBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
-  const { demo, transitioning } = props
+function ResponseBlock(props: {
+  demo: ApiDemoConfig
+  transitioning: boolean
+  reduceMotion: boolean
+}) {
+  const { demo, transitioning, reduceMotion } = props
+  const responseText = useMemo(() => truncateResponse(demo), [demo])
+  const typedResponse = useTypewriterText({
+    text: responseText,
+    speedMs: RESPONSE_TYPE_SPEED_MS,
+    startDelayMs: 520,
+    disabled: reduceMotion || transitioning,
+  })
 
   return (
     <div
@@ -372,7 +409,13 @@ function ResponseBlock(props: { demo: ApiDemoConfig; transitioning: boolean }) {
         )}
       >
         {demo.response.map((line, i) => (
-          <CodeLine key={i}>{renderResponseLine(line, demo)}</CodeLine>
+          <CodeLine key={i}>
+            {renderResponseLine(line, demo, {
+              text: typedResponse.value,
+              isTyping: typedResponse.isTyping,
+              reduceMotion,
+            })}
+          </CodeLine>
         ))}
       </div>
     </div>
@@ -390,12 +433,29 @@ function SectionLabel(props: { children: ReactNode }) {
 const STRING_RE = /"[^"]*"/g
 const PLACEHOLDER_RE = /<[a-z]+>/gi
 
-function renderJsonLine(line: string): ReactNode {
+function formatRequestText(demo: ApiDemoConfig): string {
+  return [
+    `curl -X POST "${demo.endpoint}" \\`,
+    ...demo.headers.map((header) => `  -H ${header} \\`),
+    `  -d '{`,
+    ...demo.request.map((line) => `    ${line}`),
+    `  }'`,
+  ].join('\n')
+}
+
+function renderRequestLine(line: string): ReactNode {
   if (!line.trim()) return <Muted> </Muted>
+  if (line.startsWith('curl') || line.trimStart().startsWith('-')) {
+    return tokenizeCommand(line)
+  }
   return tokenize(line)
 }
 
-function renderResponseLine(line: string, demo: ApiDemoConfig): ReactNode {
+function renderResponseLine(
+  line: string,
+  demo: ApiDemoConfig,
+  generated: { text: string; isTyping: boolean; reduceMotion: boolean }
+): ReactNode {
   if (!line.trim()) return <Muted> </Muted>
 
   const segments: ReactNode[] = []
@@ -414,9 +474,13 @@ function renderResponseLine(line: string, demo: ApiDemoConfig): ReactNode {
     const placeholder = match[0]
     if (placeholder === '<text>') {
       segments.push(
-        <Accent key={`ph-${idx}`} accent={demo.accent}>
-          {`"${truncateResponse(demo)}"`}
-        </Accent>
+        <GeneratedResponseText
+          key={`ph-${idx}`}
+          text={generated.text}
+          isTyping={generated.isTyping}
+          reduceMotion={generated.reduceMotion}
+          accent={demo.accent}
+        />
       )
     } else if (placeholder === '<tokens>') {
       segments.push(<NumberText key={`ph-${idx}`}>{demo.tokens}</NumberText>)
@@ -455,8 +519,62 @@ function truncateResponse(demo: ApiDemoConfig): string {
   return map[demo.id] ?? '...'
 }
 
+function usePrefersReducedMotion(): boolean {
+  const [reduceMotion, setReduceMotion] = useState(false)
+
+  useEffect(() => {
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)')
+    const update = () => setReduceMotion(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  return reduceMotion
+}
+
+function useTypewriterText(options: {
+  text: string
+  speedMs: number
+  startDelayMs?: number
+  disabled?: boolean
+}): { value: string; isTyping: boolean } {
+  const { text, speedMs, startDelayMs = 0, disabled = false } = options
+  const [value, setValue] = useState(disabled ? text : '')
+  const [isTyping, setIsTyping] = useState(false)
+
+  useEffect(() => {
+    if (disabled) {
+      setValue(text)
+      setIsTyping(false)
+      return
+    }
+
+    let index = 0
+    let interval: ReturnType<typeof setInterval> | undefined
+    const timeout = setTimeout(() => {
+      setValue('')
+      setIsTyping(true)
+      interval = setInterval(() => {
+        index += 1
+        setValue(text.slice(0, index))
+        if (index >= text.length) {
+          if (interval) clearInterval(interval)
+          setIsTyping(false)
+        }
+      }, speedMs)
+    }, startDelayMs)
+
+    return () => {
+      clearTimeout(timeout)
+      if (interval) clearInterval(interval)
+    }
+  }, [disabled, speedMs, startDelayMs, text])
+
+  return { value, isTyping }
+}
+
 function tokenize(input: string): ReactNode {
-  // Split string into "..." string runs and the rest, then color keys/punct.
   const segments: ReactNode[] = []
   let cursor = 0
   const matches = [...input.matchAll(STRING_RE)]
@@ -478,6 +596,38 @@ function tokenize(input: string): ReactNode {
     }
     cursor = start + text.length
   })
+
+  if (cursor < input.length) {
+    segments.push(<Muted key='tail'>{input.slice(cursor)}</Muted>)
+  }
+
+  return segments
+}
+
+function tokenizeCommand(input: string): ReactNode {
+  const commandRe = /^(curl)|(-[A-Za-z])|("[^"]*"|'[^']*')|(\\)$/g
+  const segments: ReactNode[] = []
+  let cursor = 0
+
+  for (const match of input.matchAll(commandRe)) {
+    const start = match.index ?? 0
+    if (start > cursor) {
+      segments.push(
+        <Muted key={`m-${start}`}>{input.slice(cursor, start)}</Muted>
+      )
+    }
+    const text = match[0]
+    if (text === 'curl') {
+      segments.push(<Command key={`c-${start}`}>{text}</Command>)
+    } else if (text.startsWith('-')) {
+      segments.push(<Flag key={`f-${start}`}>{text}</Flag>)
+    } else if (text === '\\') {
+      segments.push(<Muted key={`b-${start}`}>{text}</Muted>)
+    } else {
+      segments.push(<StringText key={`s-${start}`}>{text}</StringText>)
+    }
+    cursor = start + text.length
+  }
 
   if (cursor < input.length) {
     segments.push(<Muted key='tail'>{input.slice(cursor)}</Muted>)
@@ -543,5 +693,75 @@ function Accent(props: { children: ReactNode; accent: AccentTone }) {
   const tone = ACCENT_CLASSES[props.accent]
   return (
     <span className={cn('font-medium', tone.activeText)}>{props.children}</span>
+  )
+}
+
+function CodeCaret() {
+  return (
+    <span
+      aria-hidden
+      className='home-code-caret ml-0.5 inline-block h-[1em] w-[0.55ch] translate-y-0.5 rounded-[1px] bg-current opacity-80'
+      style={{ animation: 'home-code-caret 900ms steps(1) infinite' }}
+    />
+  )
+}
+
+function GeneratedResponseText(props: {
+  text: string
+  isTyping: boolean
+  reduceMotion: boolean
+  accent: AccentTone
+}) {
+  const { text, isTyping, reduceMotion, accent } = props
+  const [pulseIndex, setPulseIndex] = useState(-1)
+  const tone = ACCENT_CLASSES[accent]
+
+  useEffect(() => {
+    if (reduceMotion || text.length === 0) {
+      setPulseIndex(-1)
+      return
+    }
+
+    const interval = setInterval(() => {
+      setPulseIndex((prev) => {
+        const next = Math.floor(Math.random() * text.length)
+        return next === prev ? (next + 1) % text.length : next
+      })
+      window.setTimeout(() => setPulseIndex(-1), 220)
+    }, 1300)
+
+    return () => clearInterval(interval)
+  }, [reduceMotion, text.length])
+
+  return (
+    <Accent accent={accent}>
+      &quot;
+      {text.split('').map((char, index) => (
+        <span
+          key={`${char}-${index}`}
+          className={cn(
+            'inline-block min-w-0 will-change-transform',
+            pulseIndex === index && 'home-byte-hop'
+          )}
+          style={
+            pulseIndex === index
+              ? { animation: 'home-byte-hop 220ms ease-out' }
+              : undefined
+          }
+        >
+          {char === ' ' ? '\u00A0' : char}
+        </span>
+      ))}
+      {isTyping ? (
+        <span
+          className={cn(
+            'home-code-caret ml-0.5 inline-block h-[1em] w-[0.5ch] translate-y-0.5 rounded-[1px] bg-current',
+            tone.activeText
+          )}
+          style={{ animation: 'home-code-caret 760ms steps(1) infinite' }}
+        />
+      ) : null}
+      &quot;
+    </Accent>
   )
 }

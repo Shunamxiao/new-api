@@ -61,7 +61,7 @@ export default defineConfig(({ envMode }) => {
       },
     },
     html: {
-      template: './index.html',
+      template: path.resolve(__dirname, './index.html'),
     },
     server: {
       host: '0.0.0.0',
