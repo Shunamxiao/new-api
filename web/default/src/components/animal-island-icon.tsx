@@ -16,33 +16,35 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useRef } from 'react'
-import { useRouterState } from '@tanstack/react-router'
-import LoadingBar, { type LoadingBarRef } from 'react-top-loading-bar'
+import type { CSSProperties } from 'react'
+import { Icon, type IconName } from 'animal-island-ui'
+import { cn } from '@/lib/utils'
 
-export function NavigationProgress() {
-  const ref = useRef<LoadingBarRef>(null)
-  const state = useRouterState()
+export type AnimalIslandIconName = IconName
 
-  useEffect(() => {
-    if (state.status === 'pending') {
-      ref.current?.continuousStart()
-    } else {
-      ref.current?.complete()
-    }
-  }, [state.status])
+interface AnimalIslandIconProps {
+  name: AnimalIslandIconName
+  size?: number
+  className?: string
+  style?: CSSProperties
+  bounce?: boolean
+}
+
+export function AnimalIslandIcon(props: AnimalIslandIconProps) {
+  const size = props.size ?? 24
 
   return (
-    <LoadingBar
-      color='var(--muted-foreground)'
-      containerStyle={{
-        maxWidth: '100dvw',
-        overflow: 'hidden',
-        width: '100dvw',
-      }}
-      ref={ref}
-      shadow={true}
-      height={2}
+    <Icon
+      aria-hidden='true'
+      data-animal-island-icon={props.name}
+      name={props.name}
+      size={size}
+      bounce={props.bounce}
+      className={cn(
+        'inline-block shrink-0 object-contain',
+        props.className
+      )}
+      style={props.style}
     />
   )
 }

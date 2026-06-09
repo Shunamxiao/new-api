@@ -16,17 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Menu } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Markdown } from '@/components/ui/markdown'
 import { type TopNavLink } from '../types'
 
 type TopNavProps = React.HTMLAttributes<HTMLElement> & {
@@ -38,6 +45,8 @@ type TopNavProps = React.HTMLAttributes<HTMLElement> & {
  * 在大屏幕显示水平导航，在小屏幕显示下拉菜单
  */
 export function TopNav({ className, links, ...props }: TopNavProps) {
+  const [modalLink, setModalLink] = useState<TopNavLink | null>(null)
+
   // 规范化链接，确保所有可选属性都有默认值
   const normalizedLinks = useMemo(
     () =>
@@ -61,8 +70,23 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
             <Menu />
           </DropdownMenuTrigger>
           <DropdownMenuContent side='bottom' align='start'>
-            {normalizedLinks.map(
-              ({ title, href, isActive, disabled, external }) => (
+            {normalizedLinks.map((link) => {
+              const { title, href, isActive, disabled, external } = link
+              if (link.action === 'modal') {
+                return (
+                  <DropdownMenuItem
+                    key={`${title}-${href}`}
+                    disabled={disabled}
+                    onClick={() => setModalLink(link)}
+                  >
+                    <span className={!isActive ? 'text-muted-foreground' : ''}>
+                      {title}
+                    </span>
+                  </DropdownMenuItem>
+                )
+              }
+
+              return (
                 <DropdownMenuItem
                   key={`${title}-${href}`}
                   render={
@@ -87,7 +111,7 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
                   }
                 ></DropdownMenuItem>
               )
-            )}
+            })}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -100,14 +124,31 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
         )}
         {...props}
       >
-        {normalizedLinks.map(({ title, href, isActive, disabled, external }) =>
-          external ? (
+        {normalizedLinks.map((link) => {
+          const { title, href, isActive, disabled, external } = link
+          const linkClassName = `hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`
+
+          if (link.action === 'modal') {
+            return (
+              <button
+                key={`${title}-${href}`}
+                type='button'
+                disabled={disabled}
+                onClick={() => setModalLink(link)}
+                className={linkClassName}
+              >
+                {title}
+              </button>
+            )
+          }
+
+          return external ? (
             <a
               key={`${title}-${href}`}
               href={href}
               target='_blank'
               rel='noopener noreferrer'
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
+              className={linkClassName}
             >
               {title}
             </a>
@@ -116,13 +157,29 @@ export function TopNav({ className, links, ...props }: TopNavProps) {
               key={`${title}-${href}`}
               to={href}
               disabled={disabled}
-              className={`hover:text-primary text-sm font-medium transition-colors ${isActive ? '' : 'text-muted-foreground'}`}
+              className={linkClassName}
             >
               {title}
             </Link>
           )
-        )}
+        })}
       </nav>
+
+      <Dialog
+        open={!!modalLink}
+        onOpenChange={(open) => !open && setModalLink(null)}
+      >
+        <DialogContent className='max-h-[88dvh] w-[calc(100vw-2rem)] overflow-hidden p-0 sm:max-w-2xl'>
+          <DialogHeader className='border-border border-b px-5 py-4 text-left'>
+            <DialogTitle>
+              {modalLink?.modalTitle || modalLink?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className='max-h-[calc(88dvh-5rem)] overflow-y-auto px-5 py-4'>
+            <Markdown>{modalLink?.modalContent || ''}</Markdown>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

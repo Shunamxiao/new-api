@@ -33,6 +33,7 @@
     "@visactor/react-vchart": "^2.0.22",
     "@visactor/vchart": "^2.0.22",
     "ai": "^6.0.191",
+    "animal-island-ui": "^0.9.8",
     "auto-skeleton-react": "^1.0.5",
     "axios": "catalog:",
     "class-variance-authority": "^0.7.1",

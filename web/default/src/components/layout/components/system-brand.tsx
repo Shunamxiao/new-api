@@ -26,6 +26,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from '@/components/ui/sidebar'
+import { HeaderLogo } from './header-logo'
 
 type SystemBrandProps = {
   defaultName?: string
@@ -47,7 +48,7 @@ type SystemBrandProps = {
 export function SystemBrand(props: SystemBrandProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
-  const { logo } = useSystemConfig()
+  const { logo, loading, logoFailed, logoLoaded } = useSystemConfig()
 
   const variant = props.variant ?? 'sidebar'
   const name = status?.system_name || props.defaultName || 'New API'
@@ -60,18 +61,20 @@ export function SystemBrand(props: SystemBrandProps) {
         to='/'
         aria-label={t('Go to home')}
         className={cn(
-          'text-foreground inline-flex h-7 items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none',
+          'text-foreground inline-flex h-7 min-w-0 max-w-[8.25rem] shrink items-center gap-1.5 rounded-md px-1.5 text-sm font-medium transition-colors outline-none select-none sm:max-w-[12rem]',
           'hover:bg-accent focus-visible:ring-ring/40 focus-visible:ring-2'
         )}
       >
-        <div className='flex size-5 items-center justify-center overflow-hidden rounded-md'>
-          <img
+        <div className='flex size-5 shrink-0 items-center justify-center overflow-hidden rounded-md'>
+          <HeaderLogo
             src={logo}
             alt={t('Logo')}
+            loading={loading}
+            logoLoaded={logoLoaded && !logoFailed}
             className='size-full rounded-md object-cover'
           />
         </div>
-        <span className='max-w-[12rem] truncate'>{name}</span>
+        <span className='min-w-0 truncate'>{name}</span>
       </Link>
     )
   }
@@ -85,9 +88,11 @@ export function SystemBrand(props: SystemBrandProps) {
           render={<div />}
         >
           <div className='flex aspect-square size-8 items-center justify-center overflow-hidden rounded-lg'>
-            <img
+            <HeaderLogo
               src={logo}
               alt={t('Logo')}
+              loading={loading}
+              logoLoaded={logoLoaded && !logoFailed}
               className='size-full rounded-lg object-cover'
             />
           </div>

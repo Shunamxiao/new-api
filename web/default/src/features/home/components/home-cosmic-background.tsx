@@ -16,6 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect, useState } from 'react'
+import { AnimalIslandIcon } from '@/components/animal-island-icon'
+
 const COSMIC_STARS = [
   { left: '8%', top: '8%', size: 2, delay: '0s', duration: '4.2s' },
   { left: '17%', top: '24%', size: 1, delay: '1.6s', duration: '5.4s' },
@@ -63,6 +66,26 @@ const TOP_PLANET_IMAGE =
   'https://img.pagehost.cn/autoupload/RUB1VzuZ7lHwdpWkZlkFCtiO_OyvX7mIgxFBfDMDErs/20260606/9BDt/512X512/TheWorldTop.png/webp'
 
 export function HomeCosmicBackground() {
+  const [planetImageReady, setPlanetImageReady] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => {
+      if (!cancelled) setPlanetImageReady(true)
+    }
+    image.onerror = () => {
+      if (!cancelled) setPlanetImageReady(false)
+    }
+    image.src = TOP_PLANET_IMAGE
+
+    return () => {
+      cancelled = true
+      image.onload = null
+      image.onerror = null
+    }
+  }, [])
+
   return (
     <div
       aria-hidden
@@ -131,14 +154,20 @@ export function HomeCosmicBackground() {
           style={{ animation: 'home-planet-halo 6.8s ease-in-out infinite' }}
         />
         <span className='absolute top-1/2 left-1/2 h-9 w-52 -translate-x-1/2 -translate-y-1/2 -rotate-12 rounded-full border border-cyan-100/18 bg-gradient-to-r from-transparent via-cyan-100/8 to-transparent blur-[1px]' />
-        <img
-          src={TOP_PLANET_IMAGE}
-          alt=''
-          draggable={false}
-          loading='eager'
-          decoding='async'
-          className='relative size-full object-contain drop-shadow-[0_0_42px_rgba(56,189,248,0.55)]'
-        />
+        {planetImageReady ? (
+          <img
+            src={TOP_PLANET_IMAGE}
+            alt=''
+            draggable={false}
+            loading='eager'
+            decoding='async'
+            className='relative size-full object-contain drop-shadow-[0_0_42px_rgba(56,189,248,0.55)]'
+          />
+        ) : (
+          <span className='relative flex size-full items-center justify-center rounded-full border border-cyan-100/20 bg-cyan-300/10 text-cyan-100 shadow-[inset_0_0_32px_rgba(125,211,252,0.18),0_0_42px_rgba(56,189,248,0.38)]'>
+            <AnimalIslandIcon name='icon-map' size={72} bounce />
+          </span>
+        )}
         {TOP_PLANET_SPARKS.map((spark, index) => (
           <span
             key={index}

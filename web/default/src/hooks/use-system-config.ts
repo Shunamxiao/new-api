@@ -26,6 +26,11 @@ import {
 } from '@/stores/system-config-store'
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
 import { applyFaviconToDom } from '@/lib/dom-utils'
+import {
+  DEFAULT_THEME_CUSTOMIZATION,
+  THEME_PRESET_VALUES,
+  type ThemePreset,
+} from '@/lib/theme-customization'
 
 interface UseSystemConfigOptions {
   /** Automatically fetch config from backend (use only in root component) */
@@ -46,6 +51,7 @@ interface StatusApiResponse {
     usd_exchange_rate?: number
     custom_currency_symbol?: string
     custom_currency_exchange_rate?: number
+    theme_preset?: string
   }
 }
 
@@ -56,6 +62,13 @@ function toNumber(value: unknown, fallback: number): number {
     if (!Number.isNaN(parsed)) return parsed
   }
   return fallback
+}
+
+function toThemePreset(value: unknown): ThemePreset {
+  return typeof value === 'string' &&
+    THEME_PRESET_VALUES.has(value as ThemePreset)
+    ? (value as ThemePreset)
+    : DEFAULT_THEME_CUSTOMIZATION.preset
 }
 
 /**
@@ -97,6 +110,7 @@ export function mapStatusDataToConfig(
     footerHtml: data.footer_html,
     demoSiteEnabled: data.demo_site_enabled,
     displayTokenStatEnabled: data.display_token_stat_enabled,
+    themePreset: toThemePreset(data.theme_preset),
     currency,
   }
 }
@@ -145,8 +159,10 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
   const {
     config,
     loading,
+    failedLogoUrl,
     loadedLogoUrl,
     setConfig,
+    setFailedLogoUrl,
     setLoadedLogoUrl,
     setLoading,
   } = useSystemConfigStore()
@@ -175,6 +191,7 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
 
     // Skip if logo is already loaded
     if (!logo || logo === loadedLogoUrl) return
+    if (logo === failedLogoUrl) return
 
     // Preload new logo
     return preloadImage(
@@ -188,16 +205,16 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
           // eslint-disable-next-line no-console
           console.error('Failed to load logo:', logo)
         }
-        // Mark as loaded even on error to prevent infinite retry
-        setLoadedLogoUrl(logo)
+        setFailedLogoUrl(logo)
       }
     )
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.logo, loadedLogoUrl, setLoadedLogoUrl])
+  }, [config.logo, failedLogoUrl, loadedLogoUrl, setFailedLogoUrl, setLoadedLogoUrl])
 
   return {
     ...config,
     loading,
+    logoFailed: config.logo === failedLogoUrl && !!failedLogoUrl,
     logoLoaded: config.logo === loadedLogoUrl && !!loadedLogoUrl,
   }
 }

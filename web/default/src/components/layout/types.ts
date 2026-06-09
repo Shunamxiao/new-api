@@ -87,10 +87,13 @@ export type SidebarData = {
 export type TopNavLink = {
   title: string
   href: string
+  action?: 'link' | 'modal'
   isActive?: boolean
   disabled?: boolean
   requiresAuth?: boolean
   external?: boolean
+  modalTitle?: string
+  modalContent?: string
 }
 
 /**

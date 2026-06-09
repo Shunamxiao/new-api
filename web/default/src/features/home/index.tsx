@@ -34,7 +34,10 @@ export function Home() {
   if (!isLoaded) {
     return (
       <PublicLayout showMainContainer={false}>
-        <main className='flex min-h-screen items-center justify-center'>
+        <main
+          data-home-page='loading'
+          className='flex min-h-screen items-center justify-center'
+        >
           <div className='text-muted-foreground'>{t('Loading...')}</div>
         </main>
       </PublicLayout>
@@ -44,7 +47,7 @@ export function Home() {
   if (shouldRenderCustom) {
     return (
       <PublicLayout showMainContainer={false}>
-        <main className='overflow-x-hidden'>
+        <main data-home-page='custom' className='overflow-x-hidden'>
           {isUrl ? (
             <iframe
               src={content}
@@ -63,7 +66,7 @@ export function Home() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <main className='relative overflow-hidden'>
+      <main data-home-page='default' className='relative overflow-hidden'>
         <HomeCosmicBackground />
         <Hero isAuthenticated={isAuthenticated} />
         <HowItWorks />

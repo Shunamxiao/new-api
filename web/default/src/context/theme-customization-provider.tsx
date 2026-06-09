@@ -21,6 +21,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
 } from 'react'
@@ -55,13 +56,23 @@ function readCookie<T extends string>(
 
 function applyAttribute(name: string, value: string | null) {
   if (typeof document === 'undefined') return
+  const root = document.documentElement
   const body = document.body
-  if (!body) return
   if (value === null) {
-    body.removeAttribute(name)
+    root.removeAttribute(name)
+    body?.removeAttribute(name)
   } else {
-    body.setAttribute(name, value)
+    root.setAttribute(name, value)
+    body?.setAttribute(name, value)
   }
+}
+
+function getInitialPreset(defaultPreset?: ThemePreset): ThemePreset {
+  return readCookie<ThemePreset>(
+    THEME_COOKIE_KEYS.preset,
+    THEME_PRESET_VALUES,
+    defaultPreset ?? DEFAULT_THEME_CUSTOMIZATION.preset
+  )
 }
 
 type ThemeCustomizationContextType = {
@@ -95,13 +106,10 @@ const ThemeCustomizationContext =
 
 export function ThemeCustomizationProvider(props: {
   children: React.ReactNode
+  defaultPreset?: ThemePreset
 }) {
   const [preset, _setPreset] = useState<ThemePreset>(() =>
-    readCookie<ThemePreset>(
-      THEME_COOKIE_KEYS.preset,
-      THEME_PRESET_VALUES,
-      DEFAULT_THEME_CUSTOMIZATION.preset
-    )
+    getInitialPreset(props.defaultPreset)
   )
   const [font, _setFont] = useState<ThemeFont>(() =>
     readCookie<ThemeFont>(
@@ -132,9 +140,19 @@ export function ThemeCustomizationProvider(props: {
     )
   )
 
+  // 服务器默认主题变化时，未设置本地偏好的用户立即跟随全局配置。
+  useEffect(() => {
+    const defaultPreset =
+      props.defaultPreset ?? DEFAULT_THEME_CUSTOMIZATION.preset
+    const storedPreset = getCookie(THEME_COOKIE_KEYS.preset)
+    if (!storedPreset && preset !== defaultPreset) {
+      _setPreset(defaultPreset)
+    }
+  }, [preset, props.defaultPreset])
+
   // Mirror state to the <body> via data-* attributes so theme-presets.css can
   // override CSS variables at the right cascade layer.
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyAttribute(
       'data-theme-preset',
       preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset

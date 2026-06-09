@@ -17,17 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import type { ReactNode } from 'react'
-import {
-  ArrowRight,
-  Copy,
-  ImageIcon,
-  MessageCircle,
-  Sparkles,
-} from 'lucide-react'
+import type { AnchorHTMLAttributes } from 'react'
+import { ArrowRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  AnimalIslandIcon,
+  type AnimalIslandIconName,
+} from '@/components/animal-island-icon'
 import { AnimateInView } from '@/components/animate-in-view'
 import { useStatus } from '@/hooks/use-status'
 import {
@@ -106,19 +104,21 @@ function isExternalUrl(url: string) {
   return /^https?:\/\//i.test(url)
 }
 
-function ActionLink(props: {
+interface ActionLinkProps extends AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string
-  children: ReactNode
-  className?: string
-}) {
+}
+
+function ActionLink(props: ActionLinkProps) {
+  const { href, children, className, ...rest } = props
   return (
     <a
-      href={props.href}
-      target={isExternalUrl(props.href) ? '_blank' : undefined}
-      rel={isExternalUrl(props.href) ? 'noopener noreferrer' : undefined}
-      className={props.className}
+      {...rest}
+      href={href}
+      target={isExternalUrl(href) ? '_blank' : undefined}
+      rel={isExternalUrl(href) ? 'noopener noreferrer' : undefined}
+      className={className}
     >
-      {props.children}
+      {children}
     </a>
   )
 }
@@ -135,24 +135,24 @@ function HomeGatewayPanel(props: { isAuthenticated?: boolean }) {
     {
       label: t('Dashboard'),
       href: consoleHref,
-      icon: ArrowRight,
+      icon: 'icon-map',
     },
     {
       label: t('Get Started'),
       href: config.docsUrl,
-      icon: Sparkles,
+      icon: 'icon-miles',
     },
     {
       label: t('Image Generation'),
       href: config.imageGenerationUrl || '/mj',
-      icon: ImageIcon,
+      icon: 'icon-camera',
     },
     {
       label: t('Contact Us'),
       href: contactHref,
-      icon: MessageCircle,
+      icon: 'icon-chat',
     },
-  ]
+  ] satisfies Array<{ label: string; href: string; icon: AnimalIslandIconName }>
 
   const handleCopy = async () => {
     try {
@@ -164,10 +164,16 @@ function HomeGatewayPanel(props: { isAuthenticated?: boolean }) {
   }
 
   return (
-    <div className='relative z-10 mx-auto mt-12 max-w-4xl rounded-lg border border-border/60 bg-background/70 p-4 text-left shadow-[0_26px_80px_-56px_rgba(15,23,42,0.7)] backdrop-blur-md md:p-5 dark:border-cyan-300/15 dark:bg-slate-950/45 dark:shadow-[0_26px_100px_-58px_rgba(56,189,248,0.75)]'>
+    <div
+      data-home-slot='gateway-panel'
+      className='relative z-10 mx-auto mt-12 max-w-4xl rounded-lg border border-border/60 bg-background/70 p-4 text-left shadow-[0_26px_80px_-56px_rgba(15,23,42,0.7)] backdrop-blur-md md:p-5 dark:border-cyan-300/15 dark:bg-slate-950/45 dark:shadow-[0_26px_100px_-58px_rgba(56,189,248,0.75)]'
+    >
       <div className='pointer-events-none absolute inset-0 rounded-lg bg-[linear-gradient(135deg,rgba(125,211,252,0.16),transparent_30%,rgba(168,85,247,0.12))] opacity-80' />
       <div className='relative grid gap-4 lg:grid-cols-[1.35fr_1fr]'>
-        <div className='rounded-lg border border-border/50 bg-muted/20 p-4 dark:border-cyan-300/12 dark:bg-slate-950/40'>
+        <div
+          data-home-slot='gateway-endpoint'
+          className='rounded-lg border border-border/50 bg-muted/20 p-4 dark:border-cyan-300/12 dark:bg-slate-950/40'
+        >
           <div className='mb-3 flex items-center justify-between gap-3'>
             <div>
               <div className='text-muted-foreground text-xs font-medium tracking-widest uppercase'>
@@ -195,15 +201,15 @@ function HomeGatewayPanel(props: { isAuthenticated?: boolean }) {
 
         <div className='grid grid-cols-2 gap-3'>
           {actions.map((action) => {
-            const Icon = action.icon
             return (
               <ActionLink
                 key={action.label}
                 href={action.href}
+                data-home-slot='gateway-action'
                 className='group flex min-h-20 items-center gap-3 rounded-lg border border-border/50 bg-background/55 px-4 py-3 text-sm font-medium transition-colors hover:border-cyan-300/40 hover:bg-cyan-300/8 dark:border-cyan-300/12 dark:bg-slate-950/35'
               >
                 <span className='flex size-9 items-center justify-center rounded-lg bg-cyan-300/10 text-cyan-700 transition-colors group-hover:bg-cyan-300/18 dark:text-cyan-100'>
-                  <Icon className='size-4' />
+                  <AnimalIslandIcon name={action.icon} size={24} bounce />
                 </span>
                 <span>{action.label}</span>
               </ActionLink>
@@ -219,7 +225,10 @@ export function CTA(props: CTAProps) {
   const { t } = useTranslation()
 
   return (
-    <section className='relative z-10 min-h-56 overflow-hidden px-6 py-20 md:py-28'>
+    <section
+      data-home-section='cta'
+      className='relative z-10 min-h-56 overflow-hidden px-6 py-20 md:py-28'
+    >
       <FireflyField />
       {/* Gradient mesh background */}
       <div
@@ -234,13 +243,17 @@ export function CTA(props: CTAProps) {
       />
 
       <AnimateInView
+        data-home-slot='cta-copy'
         className='relative z-10 mx-auto max-w-2xl text-center'
         animation='scale-in'
       >
         <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-4xl'>
           {t('Ready to simplify')}
           <br />
-          <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
+          <span
+            data-home-slot='cta-highlight'
+            className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'
+          >
             {t('your AI integration?')}
           </span>
         </h2>
@@ -249,14 +262,15 @@ export function CTA(props: CTAProps) {
             'Deploy your own gateway and start routing requests through your configured upstream services.'
           )}
         </p>
-        <div className='mt-8 flex items-center justify-center gap-3'>
+        <div
+          data-home-slot='cta-actions'
+          className='mt-8 flex items-center justify-center gap-3'
+        >
           <Button
             className='group rounded-lg'
             render={
               <Link
-                to={
-                  props.isAuthenticated ? '/dashboard/overview' : '/sign-up'
-                }
+                to={props.isAuthenticated ? '/dashboard' : '/sign-up'}
               />
             }
           >

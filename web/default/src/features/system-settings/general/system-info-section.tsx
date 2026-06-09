@@ -21,6 +21,11 @@ import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import {
+  DEFAULT_THEME_CUSTOMIZATION,
+  THEME_PRESET_VALUES,
+  type ThemePreset,
+} from '@/lib/theme-customization'
+import {
   Form,
   FormControl,
   FormDescription,
@@ -53,7 +58,8 @@ import { useUpdateOption } from '../hooks/use-update-option'
 
 const _systemInfoSchema = z.object({
   theme: z.object({
-    frontend: z.enum(['default', 'classic']),
+    frontend: z.enum(['default', 'classic', 'animal-island']),
+    preset: z.string(),
   }),
   SystemName: z.string().min(1),
   ServerAddress: z.string().optional(),
@@ -77,6 +83,40 @@ type SystemInfoSectionProps = {
   defaultValues: SystemInfoFormValues
 }
 
+export type FrontendThemeValue = 'default' | 'classic' | 'animal-island'
+
+const FRONTEND_THEME_OPTIONS: Array<{
+  value: FrontendThemeValue
+  labelKey: string
+}> = [
+  {
+    value: 'default',
+    labelKey: 'Default (New Frontend)',
+  },
+  {
+    value: 'animal-island',
+    labelKey: 'Animal Island Theme',
+  },
+  {
+    value: 'classic',
+    labelKey: 'Classic (Legacy Frontend)',
+  },
+]
+
+const FRONTEND_THEME_VALUES = new Set<FrontendThemeValue>(
+  FRONTEND_THEME_OPTIONS.map((item) => item.value)
+)
+
+function normalizeFrontendTheme(value: unknown): FrontendThemeValue {
+  if (
+    typeof value === 'string' &&
+    FRONTEND_THEME_VALUES.has(value as FrontendThemeValue)
+  ) {
+    return value as FrontendThemeValue
+  }
+  return 'default'
+}
+
 function normalizeValue(value: unknown): string {
   if (value === undefined || value === null) return ''
   return typeof value === 'string' ? value : String(value)
@@ -85,11 +125,21 @@ function normalizeValue(value: unknown): string {
 export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const savedPreset =
+    defaultValues.theme?.preset &&
+    THEME_PRESET_VALUES.has(defaultValues.theme.preset as ThemePreset)
+      ? (defaultValues.theme.preset as ThemePreset)
+      : DEFAULT_THEME_CUSTOMIZATION.preset
+  const frontendThemeValue: FrontendThemeValue = normalizeFrontendTheme(
+    savedPreset === 'animal-island'
+      ? 'animal-island'
+      : defaultValues.theme?.frontend
+  )
 
   const normalizedDefaults: SystemInfoFormValues = {
     theme: {
-      frontend:
-        defaultValues.theme?.frontend === 'classic' ? 'classic' : 'default',
+      frontend: frontendThemeValue,
+      preset: savedPreset,
     },
     SystemName: normalizeValue(defaultValues.SystemName),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
@@ -109,7 +159,8 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
 
   const systemInfoSchemaWithI18n = z.object({
     theme: z.object({
-      frontend: z.enum(['default', 'classic']),
+      frontend: z.enum(['default', 'classic', 'animal-island']),
+      preset: z.string(),
     }),
     SystemName: z.string().min(1, {
       error: () => t('System name is required'),
@@ -140,6 +191,24 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
       onSubmit: async (_data, changedFields) => {
         for (const [key, value] of Object.entries(changedFields)) {
           let v = normalizeValue(value)
+          if (key === 'theme.frontend') {
+            const selectedFrontend = normalizeFrontendTheme(v)
+            const preset =
+              selectedFrontend === 'animal-island'
+                ? 'animal-island'
+                : 'default'
+            const frontend =
+              selectedFrontend === 'classic' ? 'classic' : 'default'
+            await updateOption.mutateAsync({
+              key: 'theme.frontend',
+              value: frontend,
+            })
+            await updateOption.mutateAsync({
+              key: 'theme.preset',
+              value: preset,
+            })
+            continue
+          }
           if (key === 'ServerAddress') {
             v = v.replace(/\/+$/, '')
           }
@@ -173,18 +242,12 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormItem>
                     <FormLabel>{t('Frontend Theme')}</FormLabel>
                     <Select
-                      items={[
-                        {
-                          value: 'default',
-                          label: t('Default (New Frontend)'),
-                        },
-                        {
-                          value: 'classic',
-                          label: t('Classic (Legacy Frontend)'),
-                        },
-                      ]}
+                      items={FRONTEND_THEME_OPTIONS.map((item) => ({
+                        value: item.value,
+                        label: t(item.labelKey),
+                      }))}
                       onValueChange={field.onChange}
-                      value={field.value}
+                      value={normalizeFrontendTheme(field.value)}
                     >
                       <FormControl>
                         <SelectTrigger className='w-full'>
@@ -193,18 +256,17 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                       </FormControl>
                       <SelectContent alignItemWithTrigger={false}>
                         <SelectGroup>
-                          <SelectItem value='default'>
-                            {t('Default (New Frontend)')}
-                          </SelectItem>
-                          <SelectItem value='classic'>
-                            {t('Classic (Legacy Frontend)')}
-                          </SelectItem>
+                          {FRONTEND_THEME_OPTIONS.map((item) => (
+                            <SelectItem key={item.value} value={item.value}>
+                              {t(item.labelKey)}
+                            </SelectItem>
+                          ))}
                         </SelectGroup>
                       </SelectContent>
                     </Select>
                     <FormDescription>
                       {t(
-                        'Switch between the new frontend and the classic frontend. Changes take effect after page reload.'
+                        'Switch the frontend version or apply a global display theme. Changes take effect after page reload.'
                       )}
                     </FormDescription>
                     <FormMessage />

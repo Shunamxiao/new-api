@@ -21,6 +21,10 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronRight } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
+  AnimalIslandIcon,
+  type AnimalIslandIconName,
+} from '@/components/animal-island-icon'
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -54,6 +58,21 @@ import {
 } from '../types'
 import { ChatPresetsItem } from './chat-presets-item'
 
+const NAV_GROUP_ICONS: AnimalIslandIconName[] = [
+  'icon-map',
+  'icon-miles',
+  'icon-diy',
+  'icon-shopping',
+]
+
+function getNavGroupIcon(title: string): AnimalIslandIconName {
+  let index = 0
+  for (const char of title) {
+    index += char.charCodeAt(0)
+  }
+  return NAV_GROUP_ICONS[index % NAV_GROUP_ICONS.length]
+}
+
 /**
  * Sidebar navigation group component
  * Renders a group of navigation items, supporting regular links and collapsible submenus
@@ -64,8 +83,13 @@ export function NavGroup({ title, items }: NavGroupProps) {
 
   return (
     <SidebarGroup className='px-2 py-1'>
-      <SidebarGroupLabel className='text-muted-foreground/70 px-2 text-[11px] font-medium tracking-wider uppercase'>
-        {title}
+      <SidebarGroupLabel className='text-muted-foreground/70 flex items-center gap-1.5 px-2 text-[11px] font-medium tracking-wider uppercase'>
+        <AnimalIslandIcon
+          name={getNavGroupIcon(title)}
+          size={14}
+          className='animal-sidebar-group-icon'
+        />
+        <span className='min-w-0 truncate'>{title}</span>
       </SidebarGroupLabel>
       <SidebarMenu>
         {items.map((item) => {

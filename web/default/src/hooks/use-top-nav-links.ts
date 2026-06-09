@@ -19,15 +19,22 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
-import { parseHeaderNavModulesFromStatus } from '@/lib/nav-modules'
+import {
+  HEADER_NAV_BUILTIN_ITEMS,
+  parseHeaderNavModulesFromStatus,
+  type HeaderNavItem,
+} from '@/lib/nav-modules'
 import { useStatus } from '@/hooks/use-status'
 
 export type TopNavLink = {
   title: string
   href: string
+  action?: 'link' | 'modal'
   disabled?: boolean
   requiresAuth?: boolean
   external?: boolean
+  modalTitle?: string
+  modalContent?: string
 }
 
 /**
@@ -59,45 +66,49 @@ export function useTopNavLinks(): TopNavLink[] {
 
   const isAuthed = !!auth?.user
 
-  const links: TopNavLink[] = []
+  const builtinFallback = new Map(
+    HEADER_NAV_BUILTIN_ITEMS.map((item) => [item.id, item])
+  )
 
-  // Home
-  if (modules?.home !== false) {
-    links.push({ title: t('Home'), href: '/' })
+  const resolveBuiltinHref = (item: HeaderNavItem): string => {
+    if (item.id === 'docs') return docsLink || '/docs'
+    return item.href || builtinFallback.get(item.id)?.href || '/'
   }
 
-  // Console -> /dashboard (new console path)
-  if (modules?.console !== false) {
-    links.push({ title: t('Console'), href: '/dashboard' })
-  }
+  return (modules.items || [])
+    .filter((item) => item.enabled)
+    .map<TopNavLink>((item) => {
+      const fallback = builtinFallback.get(item.id)
+      const title =
+        item.type === 'builtin' && fallback && item.label === fallback.label
+          ? t(fallback.label)
+          : item.label || t(fallback?.label || item.id)
+      if (item.type === 'modal') {
+        return {
+          title,
+          href: '#',
+          action: 'modal',
+          modalTitle: item.modalTitle || title,
+          modalContent: item.modalContent || '',
+        }
+      }
 
-  // Pricing
-  const pricing = modules?.pricing
-  if (pricing && typeof pricing === 'object' && pricing.enabled) {
-    const requiresAuth = pricing.requireAuth && !isAuthed
-    links.push({ title: t('Model Square'), href: '/pricing', requiresAuth })
-  }
+      const href =
+        item.type === 'builtin' ? resolveBuiltinHref(item) : item.href || '/'
+      const isDocsExternal = item.id === 'docs' && Boolean(docsLink)
+      const requiresAuth =
+        item.id === 'pricing'
+          ? modules.pricing.requireAuth && !isAuthed
+          : item.id === 'rankings'
+            ? modules.rankings.requireAuth && !isAuthed
+            : false
 
-  // Rankings
-  const rankings = modules?.rankings
-  if (rankings && typeof rankings === 'object' && rankings.enabled) {
-    const requiresAuth = rankings.requireAuth && !isAuthed
-    links.push({ title: t('Rankings'), href: '/rankings', requiresAuth })
-  }
-
-  // Docs (supports external links)
-  if (modules?.docs !== false) {
-    if (docsLink) {
-      links.push({ title: t('Docs'), href: docsLink, external: true })
-    } else {
-      links.push({ title: t('Docs'), href: '/docs' })
-    }
-  }
-
-  // About
-  if (modules?.about !== false) {
-    links.push({ title: t('About'), href: '/about' })
-  }
-
-  return links
+      return {
+        title,
+        href,
+        action: 'link',
+        external: item.type === 'link' ? item.external : isDocsExternal,
+        requiresAuth,
+      }
+    })
 }

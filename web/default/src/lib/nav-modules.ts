@@ -22,6 +22,21 @@ export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
 export type HeaderNavModule = 'rankings' | 'pricing'
 
+export type HeaderNavItemAction = 'link' | 'modal'
+
+export type HeaderNavItemType = 'builtin' | 'link' | 'modal'
+
+export type HeaderNavItem = {
+  id: string
+  enabled: boolean
+  label: string
+  type: HeaderNavItemType
+  href?: string
+  external?: boolean
+  modalTitle?: string
+  modalContent?: string
+}
+
 export type HeaderNavModules = {
   home: boolean
   console: boolean
@@ -29,7 +44,8 @@ export type HeaderNavModules = {
   rankings: ModuleAccess
   docs: boolean
   about: boolean
-  [key: string]: boolean | ModuleAccess
+  items: HeaderNavItem[]
+  [key: string]: boolean | ModuleAccess | HeaderNavItem[]
 }
 
 const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
@@ -39,7 +55,46 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   rankings: { enabled: true, requireAuth: false },
   docs: true,
   about: true,
+  items: [],
 }
+
+export const HEADER_NAV_BUILTIN_ITEMS: HeaderNavItem[] = [
+  { id: 'home', enabled: true, label: 'Home', type: 'builtin', href: '/' },
+  {
+    id: 'console',
+    enabled: true,
+    label: 'Console',
+    type: 'builtin',
+    href: '/dashboard',
+  },
+  {
+    id: 'pricing',
+    enabled: true,
+    label: 'Model Square',
+    type: 'builtin',
+    href: '/pricing',
+  },
+  {
+    id: 'rankings',
+    enabled: true,
+    label: 'Rankings',
+    type: 'builtin',
+    href: '/rankings',
+  },
+  { id: 'docs', enabled: true, label: 'Docs', type: 'builtin', href: '/docs' },
+  {
+    id: 'about',
+    enabled: true,
+    label: 'About',
+    type: 'builtin',
+    href: '/about',
+  },
+]
+
+const BUILTIN_IDS = new Set(HEADER_NAV_BUILTIN_ITEMS.map((item) => item.id))
+const builtinItemById = new Map(
+  HEADER_NAV_BUILTIN_ITEMS.map((item) => [item.id, item])
+)
 
 const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   pricing: DEFAULT_HEADER_NAV_MODULES.pricing,
@@ -51,6 +106,7 @@ function cloneHeaderNavDefaults(): HeaderNavModules {
     ...DEFAULT_HEADER_NAV_MODULES,
     pricing: { ...DEFAULT_HEADER_NAV_MODULES.pricing },
     rankings: { ...DEFAULT_HEADER_NAV_MODULES.rankings },
+    items: HEADER_NAV_BUILTIN_ITEMS.map((item) => ({ ...item })),
   }
 }
 
@@ -104,12 +160,57 @@ function parseHeaderNavRecord(raw: unknown): Record<string, unknown> | null {
   }
 }
 
+function parseNavItem(raw: unknown): HeaderNavItem | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const record = raw as Record<string, unknown>
+  const id = String(record.id ?? '').trim()
+  if (!id) return null
+
+  const fallback = builtinItemById.get(id)
+  const rawType = String(record.type ?? fallback?.type ?? 'link')
+  const type: HeaderNavItemType = BUILTIN_IDS.has(id)
+    ? 'builtin'
+    : rawType === 'modal' || rawType === 'link'
+      ? rawType
+      : 'link'
+
+  return {
+    id,
+    enabled: parseHeaderNavBoolean(record.enabled, fallback?.enabled ?? true),
+    label: String(record.label ?? fallback?.label ?? id).trim() || id,
+    type,
+    href: BUILTIN_IDS.has(id)
+      ? (fallback?.href ?? '')
+      : String(record.href ?? '').trim(),
+    external: BUILTIN_IDS.has(id)
+      ? false
+      : parseHeaderNavBoolean(record.external, false),
+    modalTitle: String(record.modalTitle ?? '').trim(),
+    modalContent: String(record.modalContent ?? ''),
+  }
+}
+
+function buildLegacyItems(modules: HeaderNavModules): HeaderNavItem[] {
+  return HEADER_NAV_BUILTIN_ITEMS.map((item) => {
+    const raw = modules[item.id]
+    const enabled =
+      item.id === 'pricing' || item.id === 'rankings'
+        ? Boolean((raw as ModuleAccess | undefined)?.enabled)
+        : Boolean(raw)
+    return { ...item, enabled }
+  })
+}
+
 export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
   const result = cloneHeaderNavDefaults()
   const parsed = parseHeaderNavRecord(raw)
-  if (!parsed) return result
+  if (!parsed) {
+    result.items = buildLegacyItems(result)
+    return result
+  }
 
   Object.entries(parsed).forEach(([key, value]) => {
+    if (key === 'items') return
     if (key === 'pricing') {
       result.pricing = parseAccess(value, result.pricing)
       return
@@ -133,13 +234,30 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
     }
   })
 
+  if (Array.isArray(parsed.items)) {
+    const items = parsed.items
+      .map(parseNavItem)
+      .filter((item): item is HeaderNavItem => Boolean(item))
+    result.items = items.length > 0 ? items : buildLegacyItems(result)
+  } else {
+    result.items = buildLegacyItems(result)
+  }
+
   return result
 }
 
 export function parseHeaderNavModulesFromStatus(
   status: Record<string, unknown> | null
 ): HeaderNavModules {
-  return parseHeaderNavModules(status?.HeaderNavModules)
+  const nestedData =
+    status?.data &&
+    typeof status.data === 'object' &&
+    !Array.isArray(status.data)
+      ? (status.data as Record<string, unknown>)
+      : null
+  return parseHeaderNavModules(
+    status?.HeaderNavModules ?? nestedData?.HeaderNavModules
+  )
 }
 
 function getCachedStatus(): Record<string, unknown> | null {
@@ -192,7 +310,13 @@ export function isSidebarModuleEnabled(
   const status = getCachedStatus()
   if (!status) return true
 
-  const raw = status.SidebarModulesAdmin
+  const nestedData =
+    status.data &&
+    typeof status.data === 'object' &&
+    !Array.isArray(status.data)
+      ? (status.data as Record<string, unknown>)
+      : null
+  const raw = status.SidebarModulesAdmin ?? nestedData?.SidebarModulesAdmin
   if (!raw || String(raw).trim() === '') return true
 
   try {

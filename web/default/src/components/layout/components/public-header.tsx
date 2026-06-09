@@ -33,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Markdown } from '@/components/ui/markdown'
 import { Skeleton } from '@/components/ui/skeleton'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationPopover } from '@/components/notification-popover'
@@ -47,6 +48,11 @@ const AUTH_PROMPT_SECONDS = 5
 type AuthPromptTarget = {
   title: string
   href: string
+}
+
+type NavModalTarget = {
+  title: string
+  content: string
 }
 
 export interface PublicHeaderProps {
@@ -84,12 +90,16 @@ export function PublicHeader(props: PublicHeaderProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authPromptTarget, setAuthPromptTarget] =
     useState<AuthPromptTarget | null>(null)
+  const [navModalTarget, setNavModalTarget] = useState<NavModalTarget | null>(
+    null
+  )
   const [authPromptSecondsLeft, setAuthPromptSecondsLeft] =
     useState(AUTH_PROMPT_SECONDS)
   const { auth } = useAuthStore()
   const {
     systemName,
     logo: systemLogo,
+    logoFailed,
     loading,
     logoLoaded,
   } = useSystemConfig()
@@ -149,12 +159,24 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   const handleNavLinkClick = useCallback(
     (
-      event: React.MouseEvent<HTMLAnchorElement>,
+      event: React.MouseEvent<HTMLElement>,
       link: TopNavLink,
       closeMobile = false
     ) => {
       if (link.disabled) {
         event.preventDefault()
+        return
+      }
+
+      if (link.action === 'modal') {
+        event.preventDefault()
+        if (closeMobile) {
+          setMobileOpen(false)
+        }
+        setNavModalTarget({
+          title: link.modalTitle || link.title,
+          content: link.modalContent || '',
+        })
         return
       }
 
@@ -165,7 +187,7 @@ export function PublicHeader(props: PublicHeaderProps) {
         }
         setAuthPromptSecondsLeft(AUTH_PROMPT_SECONDS)
         setAuthPromptTarget({
-          title: t(link.title),
+          title: link.title,
           href: link.href,
         })
         return
@@ -209,7 +231,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   <HeaderLogo
                     src={systemLogo}
                     loading={loading}
-                    logoLoaded={logoLoaded}
+                    logoLoaded={logoLoaded && !logoFailed}
                     className='size-full rounded-lg object-contain'
                   />
                 )}
@@ -223,6 +245,26 @@ export function PublicHeader(props: PublicHeaderProps) {
             <div className='hidden items-center gap-0.5 sm:flex'>
               {links.map((link, i) => {
                 const isActive = pathname === link.href
+                const linkClassName = cn(
+                  'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
+                  isActive
+                    ? 'text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                  link.disabled && 'pointer-events-none opacity-50'
+                )
+                if (link.action === 'modal') {
+                  return (
+                    <button
+                      key={i}
+                      type='button'
+                      disabled={link.disabled}
+                      onClick={(event) => handleNavLinkClick(event, link)}
+                      className={linkClassName}
+                    >
+                      {link.title}
+                    </button>
+                  )
+                }
                 if (link.external) {
                   return (
                     <a
@@ -233,12 +275,9 @@ export function PublicHeader(props: PublicHeaderProps) {
                       aria-disabled={link.disabled}
                       tabIndex={link.disabled ? -1 : undefined}
                       onClick={(event) => handleNavLinkClick(event, link)}
-                      className={cn(
-                        'text-muted-foreground hover:text-foreground rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
-                        link.disabled && 'pointer-events-none opacity-50'
-                      )}
+                      className={linkClassName}
                     >
-                      {t(link.title)}
+                      {link.title}
                     </a>
                   )
                 }
@@ -248,15 +287,9 @@ export function PublicHeader(props: PublicHeaderProps) {
                     to={link.href}
                     disabled={link.disabled}
                     onClick={(event) => handleNavLinkClick(event, link)}
-                    className={cn(
-                      'rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors duration-200',
-                      isActive
-                        ? 'text-foreground'
-                        : 'text-muted-foreground hover:text-foreground',
-                      link.disabled && 'pointer-events-none opacity-50'
-                    )}
+                    className={linkClassName}
                   >
-                    {t(link.title)}
+                    {link.title}
                   </Link>
                 )
               })}
@@ -292,6 +325,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   ) : (
                     <Button
                       size='sm'
+                      data-public-auth-cta='desktop'
                       className='h-8 rounded-lg px-3.5 text-xs font-medium'
                       render={<Link to='/sign-in' />}
                     >
@@ -379,8 +413,22 @@ export function PublicHeader(props: PublicHeaderProps) {
                     className={linkClassName}
                     style={transitionStyle}
                   >
-                    {t(link.title)}
+                    {link.title}
                   </a>
+                )
+              }
+              if (link.action === 'modal') {
+                return (
+                  <button
+                    key={i}
+                    type='button'
+                    disabled={link.disabled}
+                    onClick={(event) => handleNavLinkClick(event, link, true)}
+                    className={linkClassName}
+                    style={transitionStyle}
+                  >
+                    {link.title}
+                  </button>
                 )
               }
               return (
@@ -392,7 +440,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   className={linkClassName}
                   style={transitionStyle}
                 >
-                  {t(link.title)}
+                  {link.title}
                 </Link>
               )
             })}
@@ -411,6 +459,7 @@ export function PublicHeader(props: PublicHeaderProps) {
               <Link
                 to={isAuthenticated ? '/dashboard' : '/sign-in'}
                 onClick={() => setMobileOpen(false)}
+                data-public-auth-cta='mobile'
                 className='bg-foreground text-background inline-flex h-10 items-center justify-center rounded-lg text-sm font-medium transition-opacity hover:opacity-90 active:opacity-80'
               >
                 {isAuthenticated ? t('Go to Dashboard') : t('Sign in')}
@@ -448,6 +497,24 @@ export function PublicHeader(props: PublicHeaderProps) {
             </Button>
             <Button onClick={navigateToSignIn}>{t('Sign in now')}</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!navModalTarget}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNavModalTarget(null)
+          }
+        }}
+      >
+        <DialogContent className='max-h-[88dvh] w-[calc(100vw-2rem)] overflow-hidden p-0 sm:max-w-2xl'>
+          <DialogHeader className='border-border border-b px-5 py-4 text-left'>
+            <DialogTitle>{navModalTarget?.title}</DialogTitle>
+          </DialogHeader>
+          <div className='max-h-[calc(88dvh-5rem)] overflow-y-auto px-5 py-4'>
+            <Markdown>{navModalTarget?.content || ''}</Markdown>
+          </div>
         </DialogContent>
       </Dialog>
     </>

@@ -19,10 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { CherryStudio } from '@lobehub/icons'
 import { ArrowRight, BookOpen, Copy } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
+import { AnimalIslandIcon } from '@/components/animal-island-icon'
 import {
   getDefaultApiBaseUrl,
   parseHomeContactConfig,
@@ -34,23 +36,10 @@ interface HeroProps {
   isAuthenticated?: boolean
 }
 
-// Stylized three-dots indicator representing "More"
-const MoreIcon = () => (
-  <svg
-    className='text-muted-foreground/60 group-hover:text-foreground size-6 shrink-0 transition-colors'
-    viewBox='0 0 24 24'
-    fill='none'
-    xmlns='http://www.w3.org/2000/svg'
-  >
-    <circle cx='6' cy='12' r='2' fill='currentColor' />
-    <circle cx='12' cy='12' r='2' fill='currentColor' />
-    <circle cx='18' cy='12' r='2' fill='currentColor' />
-  </svg>
-)
-
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
   const { status } = useStatus()
+  const [ccSwitchIconReady, setCcSwitchIconReady] = useState(false)
   const docsUrl =
     (status?.docs_link as string | undefined) || 'https://docs.newapi.pro'
   const heroBadge =
@@ -70,6 +59,24 @@ export function Hero(props: HeroProps) {
   const endpointConfig = parseHomeContactConfig(status?.home_contact_config, {
     apiBaseUrl: getDefaultApiBaseUrl(status?.server_address as string),
   })
+
+  useEffect(() => {
+    let cancelled = false
+    const image = new Image()
+    image.onload = () => {
+      if (!cancelled) setCcSwitchIconReady(true)
+    }
+    image.onerror = () => {
+      if (!cancelled) setCcSwitchIconReady(false)
+    }
+    image.src = 'https://ccswitch.io/favicon.png'
+
+    return () => {
+      cancelled = true
+      image.onload = null
+      image.onerror = null
+    }
+  }, [])
 
   const handleCopyApiBaseUrl = async () => {
     try {
@@ -109,7 +116,10 @@ export function Hero(props: HeroProps) {
   }
 
   return (
-    <section className='relative z-10 overflow-hidden px-6 pt-24 pb-16 md:pt-32 md:pb-24 lg:pt-36 lg:pb-28'>
+    <section
+      data-home-section='hero'
+      className='relative z-10 overflow-hidden px-6 pt-24 pb-16 md:pt-32 md:pb-24 lg:pt-36 lg:pb-28'
+    >
       {/* Radial gradient background */}
       <div
         aria-hidden
@@ -130,30 +140,36 @@ export function Hero(props: HeroProps) {
 
       <div className='mx-auto grid max-w-6xl grid-cols-1 items-start gap-12 lg:grid-cols-12 lg:gap-8'>
         {/* Left Column: Title, description, action buttons and application support */}
-        <div className='flex flex-col items-start text-left lg:col-span-6'>
+        <div
+          data-home-slot='hero-copy'
+          className='flex flex-col items-start text-left lg:col-span-6'
+        >
           {/* Top Pill Badge */}
           <div
+            data-home-slot='hero-badge'
             className='landing-animate-fade-up mb-5 inline-flex items-center gap-1.5 rounded-full border border-blue-500/20 bg-blue-500/5 px-3 py-1.5 text-[11px] font-medium text-blue-600 opacity-0 shadow-xs dark:border-blue-400/20 dark:bg-blue-400/5 dark:text-blue-400'
             style={{ animationDelay: '0ms' }}
           >
-            <span className='relative flex size-1.5'>
-              <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75' />
-              <span className='relative inline-flex size-1.5 rounded-full bg-blue-500 dark:bg-blue-400' />
-            </span>
+            <AnimalIslandIcon name='icon-miles' size={18} bounce />
             <span>{heroBadge}</span>
           </div>
 
           <h1
+            data-home-slot='hero-title'
             className='landing-animate-fade-up text-[clamp(2.25rem,4.5vw,3.25rem)] leading-[1.15] font-bold tracking-tight'
             style={{ animationDelay: '60ms' }}
           >
             {heroTitle}
             <br />
-            <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
+            <span
+              data-home-slot='hero-highlight'
+              className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'
+            >
               {heroHighlight}
             </span>
           </h1>
           <p
+            data-home-slot='hero-description'
             className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-xl text-base leading-relaxed opacity-0 md:text-[15px]'
             style={{ animationDelay: '120ms' }}
           >
@@ -161,6 +177,7 @@ export function Hero(props: HeroProps) {
           </p>
 
           <div
+            data-home-slot='api-panel'
             className='landing-animate-fade-up mt-6 w-full max-w-xl opacity-0'
             style={{ animationDelay: '160ms' }}
           >
@@ -192,6 +209,7 @@ export function Hero(props: HeroProps) {
           </div>
 
           <div
+            data-home-slot='hero-actions'
             className='landing-animate-fade-up mt-8 flex flex-wrap items-center gap-3 opacity-0'
             style={{ animationDelay: '220ms' }}
           >
@@ -229,6 +247,7 @@ export function Hero(props: HeroProps) {
 
           {/* Supported Apps (参考图二样式，进行卡片化和信息扩充设计，增加视觉高度) */}
           <div
+            data-home-slot='supported-apps'
             className='landing-animate-fade-up mt-10 w-full max-w-xl opacity-0'
             style={{ animationDelay: '280ms' }}
           >
@@ -261,29 +280,24 @@ export function Hero(props: HeroProps) {
                 rel='noopener noreferrer'
                 className='group border-border/40 bg-muted/15 text-foreground/80 hover:border-border hover:bg-muted/30 hover:text-foreground flex items-center gap-3 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'
               >
-                <img
-                  src='https://ccswitch.io/favicon.png'
-                  alt='CC Switch'
-                  className='size-6 shrink-0 rounded-md object-contain'
-                  onError={(e) => {
-                    // Fallback to a styled text avatar if the remote favicon fails to load in sandbox or local environments
-                    e.currentTarget.style.display = 'none'
-                    const fallback = e.currentTarget.nextSibling as HTMLElement
-                    if (fallback) fallback.style.display = 'flex'
-                  }}
-                />
-                <span
-                  style={{ display: 'none' }}
-                  className='size-6 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-[10px] font-bold text-blue-600 dark:bg-blue-400/10 dark:text-blue-400'
-                >
-                  CC
-                </span>
+                {ccSwitchIconReady ? (
+                  <img
+                    src='https://ccswitch.io/favicon.png'
+                    alt='CC Switch'
+                    className='size-6 shrink-0 rounded-md object-contain'
+                    onError={() => setCcSwitchIconReady(false)}
+                  />
+                ) : (
+                  <span className='flex size-6 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-[10px] font-bold text-blue-600 dark:bg-blue-400/10 dark:text-blue-400'>
+                    CC
+                  </span>
+                )}
                 <span>CC Switch</span>
               </a>
 
               {/* "更多" */}
               <div className='group border-border/40 bg-muted/15 text-foreground/55 hover:border-border hover:bg-muted/30 hover:text-foreground flex cursor-default items-center gap-2.5 rounded-full border px-5 py-2.5 text-sm font-medium shadow-[0_1px_2.5px_rgba(0,0,0,0.01)] backdrop-blur-xs transition-all duration-300 hover:scale-[1.02]'>
-                <MoreIcon />
+                <AnimalIslandIcon name='icon-variant' size={24} bounce />
                 <span>{t('More Apps')}</span>
               </div>
             </div>

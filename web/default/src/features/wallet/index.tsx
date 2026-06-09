@@ -77,6 +77,16 @@ export function Wallet(props: WalletProps) {
   const { status } = useStatus()
   const { currency } = useSystemConfig()
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
+  const statusData =
+    status?.data && typeof status.data === 'object' && !Array.isArray(status.data)
+      ? status.data
+      : null
+  const walletTopupNotice =
+    typeof status?.wallet_topup_notice === 'string'
+      ? status.wallet_topup_notice
+      : typeof statusData?.wallet_topup_notice === 'string'
+        ? statusData.wallet_topup_notice
+      : ''
 
   // Calculate effective exchange rate - when display type is USD, use rate of 1
   const effectiveUsdExchangeRate = useMemo(() => {
@@ -303,6 +313,7 @@ export function Wallet(props: WalletProps) {
                   enableWaffoPancakeTopup={
                     topupInfo?.enable_waffo_pancake_topup
                   }
+                  walletTopupNotice={walletTopupNotice}
                 />
               </div>
 

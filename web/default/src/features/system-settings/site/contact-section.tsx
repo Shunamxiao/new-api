@@ -30,7 +30,6 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import {
   parseHomeContactConfig,
   serializeHomeContactConfig,
@@ -55,8 +54,6 @@ const contactSchema = z.object({
   imageGenerationUrl: z.string().optional(),
   contactUrl: z.string().optional(),
   rechargeUrl: z.string().optional(),
-  contactTitle: z.string().optional(),
-  contactDescription: z.string().optional(),
 })
 
 type ContactFormValues = z.infer<typeof contactSchema>
@@ -69,8 +66,6 @@ function toFormValues(config: HomeContactConfig): ContactFormValues {
     imageGenerationUrl: config.imageGenerationUrl,
     contactUrl: config.contactUrl,
     rechargeUrl: config.rechargeUrl,
-    contactTitle: config.contactTitle,
-    contactDescription: config.contactDescription,
   }
 }
 
@@ -105,7 +100,7 @@ export function ContactSection(props: ContactSectionProps) {
     <>
       <FormNavigationGuard when={isDirty} />
 
-      <SettingsSection title={t('Contact Us')}>
+      <SettingsSection title={t('Home service links')}>
         <Form {...form}>
           <SettingsForm onSubmit={handleSubmit}>
             <SettingsPageFormActions
@@ -194,7 +189,7 @@ export function ContactSection(props: ContactSectionProps) {
                     <Input placeholder='https://t.me/example' {...field} />
                   </FormControl>
                   <FormDescription>
-                    {t('Link target for the Contact Us entry')}
+                    {t('Link target for the contact action')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -212,46 +207,6 @@ export function ContactSection(props: ContactSectionProps) {
                   </FormControl>
                   <FormDescription>
                     {t('Recharge or billing entry used as a fallback action')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='contactTitle'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Contact Title')}</FormLabel>
-                  <FormControl>
-                    <Input placeholder={t('Contact us')} {...field} />
-                  </FormControl>
-                  <FormDescription>
-                    {t('Title for contact and service information')}
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name='contactDescription'
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>{t('Contact Description')}</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      rows={4}
-                      placeholder={t(
-                        'Configure contact methods, recharge entry, and service links for visitors.'
-                      )}
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    {t('Supplementary contact and service description')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

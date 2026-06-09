@@ -16,10 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useRef, useEffect, type ReactNode } from 'react'
+import {
+  useRef,
+  useEffect,
+  type CSSProperties,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react'
 import { cn } from '@/lib/utils'
 
-interface AnimateInViewProps {
+interface AnimateInViewProps
+  extends Omit<HTMLAttributes<HTMLElement>, 'className' | 'children'> {
   children: ReactNode
   className?: string
   delay?: number
@@ -36,6 +43,10 @@ export function AnimateInView(props: AnimateInViewProps) {
     threshold = 0.15,
     animation = 'fade-up',
     once = true,
+    className,
+    children,
+    style,
+    ...rest
   } = props
 
   const ref = useRef<HTMLDivElement>(null)
@@ -71,14 +82,22 @@ export function AnimateInView(props: AnimateInViewProps) {
 
   return (
     <Tag
+      {...rest}
       ref={ref as never}
       className={cn(
         'opacity-0 will-change-[transform,opacity]',
-        props.className
+        className
       )}
-      style={{ animationDelay: delay ? `${delay}ms` : undefined }}
+      style={
+        {
+          ...style,
+          animationDelay: delay
+            ? `${delay}ms`
+            : style?.animationDelay,
+        } as CSSProperties
+      }
     >
-      {props.children}
+      {children}
     </Tag>
   )
 }

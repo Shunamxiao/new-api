@@ -208,8 +208,12 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
   const accent = ACCENT_CLASSES[demo.accent]
 
   return (
-    <div className={cn('mx-auto w-full max-w-2xl', props.className)}>
+    <div
+      data-home-slot='terminal-demo'
+      className={cn('mx-auto w-full max-w-2xl', props.className)}
+    >
       <div
+        data-home-slot='terminal-shell'
         className={cn(
           'overflow-hidden rounded-2xl border backdrop-blur-sm',
           'border-border/60 bg-white/95 shadow-[0_20px_50px_-25px_rgba(15,23,42,0.18)]',
@@ -237,6 +241,7 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
         </style>
         {/* Tab strip */}
         <div
+          data-home-slot='terminal-tabs'
           className={cn(
             'flex items-center gap-1 border-b px-2 sm:gap-1.5 sm:px-3',
             'border-border/50 dark:border-white/[0.05]'
@@ -270,6 +275,7 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
 
         {/* Endpoint row */}
         <div
+          data-home-slot='terminal-endpoint'
           className={cn(
             'flex items-center gap-2.5 border-b px-5 py-3',
             'border-border/40 dark:border-white/[0.04]'
@@ -294,7 +300,10 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
         </div>
 
         {/* Body — fixed rows so neither block shifts when switching demos */}
-        <div className='grid h-[400px] grid-rows-[235px_minmax(0,1fr)] font-mono text-[12.5px] leading-[1.55]'>
+        <div
+          data-home-slot='terminal-body'
+          className='grid h-[400px] grid-rows-[235px_minmax(0,1fr)] font-mono text-[12.5px] leading-[1.55]'
+        >
           {/* Request */}
           <RequestBlock
             demo={demo}
@@ -312,6 +321,7 @@ export function HeroTerminalDemo(props: HeroTerminalDemoProps) {
 
         {/* Footer metrics */}
         <div
+          data-home-slot='terminal-footer'
           className={cn(
             'flex items-center justify-between border-t px-5 py-2.5',
             'border-border/40 bg-muted/30 dark:border-white/[0.05] dark:bg-white/[0.02]'

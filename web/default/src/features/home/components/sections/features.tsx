@@ -17,10 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  Zap,
-  Shield,
-  Globe,
-  Code,
   Gauge,
   DollarSign,
   Users,
@@ -28,6 +24,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimateInView } from '@/components/animate-in-view'
+import { AnimalIslandIcon } from '@/components/animal-island-icon'
 
 interface FeaturesProps {
   className?: string
@@ -45,7 +42,7 @@ export function Features(_props: FeaturesProps) {
         'Optimized network architecture ensures millisecond response times'
       ),
       span: 'md:col-span-2',
-      icon: <Zap className='size-4 text-blue-400' />,
+      icon: <AnimalIslandIcon name='icon-miles' size={24} bounce />,
       visual: (
         <div className='mt-4 grid grid-cols-3 gap-2'>
           {['OpenAI', 'Claude', 'Gemini', 'DeepSeek', 'Qwen', 'Llama'].map(
@@ -69,15 +66,12 @@ export function Features(_props: FeaturesProps) {
         'Enterprise-grade security with comprehensive permission management'
       ),
       span: 'md:col-span-1',
-      icon: <Shield className='size-4 text-emerald-400' />,
+      icon: <AnimalIslandIcon name='icon-critterpedia' size={24} bounce />,
       visual: (
         <div className='mt-4 flex items-center justify-center'>
           <div className='relative'>
             <div className='flex size-16 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/5'>
-              <Shield
-                className='size-7 text-emerald-500/70'
-                strokeWidth={1.5}
-              />
+              <AnimalIslandIcon name='icon-critterpedia' size={34} bounce />
             </div>
             <div className='absolute -top-1 -right-1 flex size-4 items-center justify-center rounded-full bg-emerald-500'>
               <svg
@@ -104,7 +98,7 @@ export function Features(_props: FeaturesProps) {
       title: t('Global Coverage'),
       desc: t('Multi-region deployment for stable global access'),
       span: 'md:col-span-1',
-      icon: <Globe className='size-4 text-violet-400' />,
+      icon: <AnimalIslandIcon name='icon-map' size={24} bounce />,
       visual: (
         <div className='mt-4 space-y-2'>
           {[t('Load Balancing'), t('Rate Limiting'), t('Cost Tracking')].map(
@@ -133,7 +127,7 @@ export function Features(_props: FeaturesProps) {
       title: t('Developer Friendly'),
       desc: t('Compatible API routes for common AI application workflows'),
       span: 'md:col-span-2',
-      icon: <Code className='size-4 text-amber-400' />,
+      icon: <AnimalIslandIcon name='icon-diy' size={24} bounce />,
       visual: (
         <div className='mt-4 flex items-center gap-3'>
           <div className='flex -space-x-2'>
@@ -147,7 +141,7 @@ export function Features(_props: FeaturesProps) {
             ))}
           </div>
           <div className='text-muted-foreground flex items-center gap-1.5 text-xs'>
-            <Code className='size-3.5 text-blue-500' />
+            <AnimalIslandIcon name='icon-diy' size={18} />
             {t('Multi-protocol Compatible')}
           </div>
         </div>
@@ -179,10 +173,19 @@ export function Features(_props: FeaturesProps) {
   ]
 
   return (
-    <section className='relative z-10 px-6 py-24 md:py-32'>
+    <section
+      data-home-section='features'
+      className='relative z-10 px-6 py-24 md:py-32'
+    >
       <div className='mx-auto max-w-6xl'>
-        <AnimateInView className='mb-16 max-w-lg'>
-          <p className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'>
+        <AnimateInView
+          data-home-slot='section-heading'
+          className='mb-16 max-w-lg'
+        >
+          <p
+            data-home-slot='section-kicker'
+            className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'
+          >
             {t('Core Features')}
           </p>
           <h2 className='text-2xl leading-tight font-bold tracking-tight md:text-3xl'>
@@ -193,10 +196,14 @@ export function Features(_props: FeaturesProps) {
         </AnimateInView>
 
         {/* Bento grid */}
-        <div className='border-border/40 bg-border/40 grid gap-px overflow-hidden rounded-xl border md:grid-cols-3'>
+        <div
+          data-home-slot='feature-grid'
+          className='border-border/40 bg-border/40 grid gap-px overflow-hidden rounded-xl border md:grid-cols-3'
+        >
           {features.map((f, i) => (
             <AnimateInView
               key={f.id}
+              data-home-slot='feature-card'
               delay={i * 100}
               animation='scale-in'
               className={`bg-background group hover:bg-muted/20 p-7 transition-colors duration-300 md:p-8 ${f.span}`}
@@ -216,10 +223,14 @@ export function Features(_props: FeaturesProps) {
         </div>
 
         {/* Additional features row */}
-        <div className='mt-12 grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12'>
+        <div
+          data-home-slot='feature-mini-grid'
+          className='mt-12 grid grid-cols-2 gap-8 md:grid-cols-4 md:gap-12'
+        >
           {additionalFeatures.map((f, i) => (
             <AnimateInView
               key={f.title}
+              data-home-slot='feature-mini-card'
               delay={i * 100}
               animation='fade-up'
               className='flex flex-col items-center text-center'

@@ -119,13 +119,13 @@ export function AppHeader({
         ) : null}
 
         {rightContent ?? (
-          <div className='ms-auto flex items-center gap-1 sm:gap-2'>
+          <div className='ms-auto flex min-w-0 shrink-0 items-center gap-1 sm:gap-2'>
             {showTopNav && (
               <div className='me-1 hidden lg:block'>
                 <TopNav links={links} />
               </div>
             )}
-            {showSearch && <Search />}
+            {showSearch && <Search className='hidden sm:inline-flex' />}
             {showNotifications && (
               <NotificationPopover
                 open={notifications.popoverOpen}

@@ -418,6 +418,7 @@ function QuickActionItem(props: { action: QuickAction }) {
   return (
     <Button
       variant='outline'
+      data-dashboard-quick-action='card'
       className='h-auto justify-start rounded-xl px-3 py-3 text-left'
       render={<Link to={props.action.to} />}
     >
@@ -443,6 +444,7 @@ function CompactQuickAction(props: { action: QuickAction }) {
     <Button
       variant='outline'
       size='sm'
+      data-dashboard-quick-action='compact'
       className='bg-background/70 h-8 min-w-24 gap-1.5 px-2.5'
       render={<Link to={props.action.to} />}
     >
@@ -726,6 +728,7 @@ export function OverviewDashboard() {
                   <Button
                     variant='outline'
                     size='sm'
+                    data-dashboard-setup-toggle='compact'
                     className='bg-background/70 h-8 min-w-28'
                     onClick={handleSetupGuideToggle}
                   >

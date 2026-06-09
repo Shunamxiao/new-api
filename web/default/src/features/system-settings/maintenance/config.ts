@@ -16,9 +16,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  HEADER_NAV_BUILTIN_ITEMS as SHARED_HEADER_NAV_BUILTIN_ITEMS,
+  type HeaderNavItem as SharedHeaderNavItem,
+} from '@/lib/nav-modules'
+
 export type HeaderNavAccessConfig = {
   enabled: boolean
   requireAuth: boolean
+}
+
+export type HeaderNavItemType = 'builtin' | 'link' | 'modal'
+
+export type HeaderNavItemConfig = {
+  id: string
+  enabled: boolean
+  label: string
+  type: HeaderNavItemType
+  href?: string
+  external: boolean
+  modalTitle?: string
+  modalContent?: string
 }
 
 export type HeaderNavModulesConfig = {
@@ -28,7 +46,8 @@ export type HeaderNavModulesConfig = {
   rankings: HeaderNavAccessConfig
   docs: boolean
   about: boolean
-  [key: string]: boolean | HeaderNavAccessConfig
+  items: HeaderNavItemConfig[]
+  [key: string]: boolean | HeaderNavAccessConfig | HeaderNavItemConfig[]
 }
 
 export type SidebarSectionConfig = {
@@ -37,6 +56,22 @@ export type SidebarSectionConfig = {
 }
 
 export type SidebarModulesAdminConfig = Record<string, SidebarSectionConfig>
+
+const toHeaderNavItemConfig = (
+  item: SharedHeaderNavItem
+): HeaderNavItemConfig => ({
+  id: item.id,
+  enabled: item.enabled,
+  label: item.label,
+  type: item.type,
+  href: item.href ?? '',
+  external: Boolean(item.external),
+  modalTitle: item.modalTitle ?? '',
+  modalContent: item.modalContent ?? '',
+})
+
+export const HEADER_NAV_BUILTIN_ITEMS: HeaderNavItemConfig[] =
+  SHARED_HEADER_NAV_BUILTIN_ITEMS.map(toHeaderNavItemConfig)
 
 export const HEADER_NAV_DEFAULT: HeaderNavModulesConfig = {
   home: true,
@@ -51,7 +86,10 @@ export const HEADER_NAV_DEFAULT: HeaderNavModulesConfig = {
   },
   docs: true,
   about: true,
+  items: HEADER_NAV_BUILTIN_ITEMS.map((item) => ({ ...item })),
 }
+
+const BUILTIN_IDS = new Set(HEADER_NAV_BUILTIN_ITEMS.map((item) => item.id))
 
 export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
   chat: {
@@ -98,6 +136,7 @@ const cloneHeaderNavDefault = (): HeaderNavModulesConfig => ({
   ...HEADER_NAV_DEFAULT,
   pricing: { ...HEADER_NAV_DEFAULT.pricing },
   rankings: { ...HEADER_NAV_DEFAULT.rankings },
+  items: HEADER_NAV_BUILTIN_ITEMS.map((item) => ({ ...item })),
 })
 
 const parseAccessModule = (
@@ -133,6 +172,90 @@ const cloneSidebarDefault = (): SidebarModulesAdminConfig =>
     {}
   )
 
+const defaultItemById = new Map(
+  HEADER_NAV_BUILTIN_ITEMS.map((item) => [item.id, item])
+)
+
+function parseNavItem(raw: unknown): HeaderNavItemConfig | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const record = raw as Record<string, unknown>
+  const id = String(record.id ?? '').trim()
+  if (!id) return null
+
+  const fallback = defaultItemById.get(id)
+  const rawType = String(record.type ?? fallback?.type ?? 'link')
+  const type: HeaderNavItemType = BUILTIN_IDS.has(id)
+    ? 'builtin'
+    : rawType === 'modal' || rawType === 'link'
+      ? rawType
+      : 'link'
+
+  return {
+    id,
+    enabled: toBoolean(record.enabled, fallback?.enabled ?? true),
+    label: String(record.label ?? fallback?.label ?? id).trim() || id,
+    type,
+    href: BUILTIN_IDS.has(id)
+      ? (fallback?.href ?? '')
+      : String(record.href ?? '').trim(),
+    external: BUILTIN_IDS.has(id) ? false : toBoolean(record.external, false),
+    modalTitle: String(record.modalTitle ?? '').trim(),
+    modalContent: String(record.modalContent ?? ''),
+  }
+}
+
+function buildItemsFromLegacy(
+  config: HeaderNavModulesConfig
+): HeaderNavItemConfig[] {
+  return HEADER_NAV_BUILTIN_ITEMS.map((item) => {
+    const raw = config[item.id]
+    const enabled =
+      item.id === 'pricing' || item.id === 'rankings'
+        ? Boolean((raw as HeaderNavAccessConfig | undefined)?.enabled)
+        : Boolean(raw)
+    return { ...item, enabled }
+  })
+}
+
+function normalizeHeaderNavItems(
+  parsedItems: unknown,
+  config: HeaderNavModulesConfig
+): HeaderNavItemConfig[] {
+  if (!Array.isArray(parsedItems)) return buildItemsFromLegacy(config)
+
+  const items = parsedItems
+    .map(parseNavItem)
+    .filter((item): item is HeaderNavItemConfig => Boolean(item))
+
+  return items.length > 0 ? items : buildItemsFromLegacy(config)
+}
+
+function syncLegacyHeaderFields(
+  config: HeaderNavModulesConfig
+): HeaderNavModulesConfig {
+  const next: HeaderNavModulesConfig = {
+    ...config,
+    pricing: { ...config.pricing },
+    rankings: { ...config.rankings },
+    items: config.items.map((item) => ({ ...item })),
+  }
+
+  for (const item of next.items) {
+    if (!BUILTIN_IDS.has(item.id)) continue
+    if (item.id === 'pricing') {
+      next.pricing.enabled = item.enabled
+      continue
+    }
+    if (item.id === 'rankings') {
+      next.rankings.enabled = item.enabled
+      continue
+    }
+    next[item.id] = item.enabled
+  }
+
+  return next
+}
+
 export function parseHeaderNavModules(
   value: string | null | undefined
 ): HeaderNavModulesConfig {
@@ -146,9 +269,11 @@ export function parseHeaderNavModules(
       ...base,
       pricing: { ...base.pricing },
       rankings: { ...base.rankings },
+      items: [],
     }
 
     Object.entries(parsed).forEach(([key, raw]) => {
+      if (key === 'items') return
       if (key === 'pricing') {
         result.pricing = parseAccessModule(raw, base.pricing)
         return
@@ -168,7 +293,8 @@ export function parseHeaderNavModules(
       }
     })
 
-    return result
+    result.items = normalizeHeaderNavItems(parsed.items, result)
+    return syncLegacyHeaderFields(result)
   } catch {
     return base
   }
@@ -177,7 +303,7 @@ export function parseHeaderNavModules(
 export function serializeHeaderNavModules(
   config: HeaderNavModulesConfig
 ): string {
-  return JSON.stringify(config)
+  return JSON.stringify(syncLegacyHeaderFields(config))
 }
 
 export function parseSidebarModulesAdmin(

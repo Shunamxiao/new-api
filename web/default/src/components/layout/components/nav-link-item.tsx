@@ -16,8 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Markdown } from '@/components/ui/markdown'
 import type { TopNavLink } from '../types'
 
 interface NavLinkItemProps {
@@ -30,11 +38,37 @@ interface NavLinkItemProps {
  * Handles routing and proper link attributes
  */
 export function NavLinkItem({ link, className }: NavLinkItemProps) {
+  const [modalOpen, setModalOpen] = useState(false)
   const linkClassName = cn(
     'text-muted-foreground hover:text-foreground transition-colors',
     link.disabled && 'pointer-events-none opacity-50',
     className
   )
+
+  if (link.action === 'modal') {
+    return (
+      <>
+        <button
+          type='button'
+          className={linkClassName}
+          disabled={link.disabled}
+          onClick={() => setModalOpen(true)}
+        >
+          {link.title}
+        </button>
+        <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+          <DialogContent className='max-h-[88dvh] w-[calc(100vw-2rem)] overflow-hidden p-0 sm:max-w-2xl'>
+            <DialogHeader className='border-border border-b px-5 py-4 text-left'>
+              <DialogTitle>{link.modalTitle || link.title}</DialogTitle>
+            </DialogHeader>
+            <div className='max-h-[calc(88dvh-5rem)] overflow-y-auto px-5 py-4'>
+              <Markdown>{link.modalContent || ''}</Markdown>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </>
+    )
+  }
 
   if (link.external) {
     return (

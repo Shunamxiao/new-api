@@ -31,6 +31,45 @@
         }
       })()
     </script>
+    <script>
+      ;(() => {
+        try {
+          const getCookie = (name) => {
+            const match = document.cookie
+              .split('; ')
+              .find((item) => item.startsWith(`${name}=`))
+            return match ? decodeURIComponent(match.split('=').slice(1).join('=')) : ''
+          }
+          const getStoredPreset = () => {
+            const cookiePreset = getCookie('theme_preset')
+            if (cookiePreset) return cookiePreset
+
+            const storedConfig = JSON.parse(
+              localStorage.getItem('system-config-storage') || 'null'
+            )
+            return storedConfig?.state?.config?.themePreset || ''
+          }
+          const theme = getCookie('vite-ui-theme') || 'system'
+          const resolvedTheme =
+            theme === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : theme
+
+          document.documentElement.classList.remove('light', 'dark')
+          document.documentElement.classList.add(resolvedTheme)
+
+          const preset = getStoredPreset()
+          if (preset && preset !== 'default') {
+            document.documentElement.setAttribute('data-theme-preset', preset)
+            document.body?.setAttribute('data-theme-preset', preset)
+          }
+        } catch {
+          // 首屏主题缓存读取失败时交给 React Provider 兜底
+        }
+      })()
+    </script>
     <meta
       name="description"
       content="Unified AI API gateway and admin dashboard."
@@ -42,6 +81,17 @@
   </head>
 
   <body>
+    <script>
+      ;(() => {
+        try {
+          const preset =
+            document.documentElement.getAttribute('data-theme-preset')
+          if (preset) document.body.setAttribute('data-theme-preset', preset)
+        } catch {
+          // body 主题同步失败时交给 React Provider 兜底
+        }
+      })()
+    </script>
     <div id="root"></div>
   </body>
 </html>

@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import type { ThemePreset } from '@/lib/theme-customization'
 
 export type CurrencyDisplayType = 'USD' | 'CNY' | 'TOKENS' | 'CUSTOM'
 
@@ -43,6 +44,7 @@ export interface SystemConfig {
   footerHtml?: string
   demoSiteEnabled?: boolean
   displayTokenStatEnabled?: boolean
+  themePreset?: ThemePreset
   currency: CurrencyConfig
 }
 
@@ -59,8 +61,10 @@ interface SystemConfigState {
   config: SystemConfig
   loading: boolean
   loadedLogoUrl: string
+  failedLogoUrl: string
   setConfig: (config: Partial<SystemConfig>) => void
   setLoadedLogoUrl: (url: string) => void
+  setFailedLogoUrl: (url: string) => void
   setLoading: (loading: boolean) => void
 }
 
@@ -78,6 +82,7 @@ export const useSystemConfigStore = create<SystemConfigState>()(
       },
       loading: true,
       loadedLogoUrl: DEFAULT_LOGO,
+      failedLogoUrl: '',
       setConfig: (newConfig) =>
         set((state) => ({
           config: {
@@ -89,7 +94,8 @@ export const useSystemConfigStore = create<SystemConfigState>()(
             },
           },
         })),
-      setLoadedLogoUrl: (url) => set({ loadedLogoUrl: url }),
+      setLoadedLogoUrl: (url) => set({ loadedLogoUrl: url, failedLogoUrl: '' }),
+      setFailedLogoUrl: (url) => set({ failedLogoUrl: url }),
       setLoading: (loading) => set({ loading }),
     }),
     {
@@ -97,6 +103,7 @@ export const useSystemConfigStore = create<SystemConfigState>()(
       partialize: (state) => ({
         config: state.config,
         loadedLogoUrl: state.loadedLogoUrl,
+        failedLogoUrl: state.failedLogoUrl,
       }),
     }
   )

@@ -27,6 +27,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Markdown } from '@/components/ui/markdown'
 import { TitledCard } from '@/components/ui/titled-card'
 import {
   Tooltip,
@@ -78,6 +79,7 @@ interface RechargeFormCardProps {
   waffoMinTopup?: number
   onWaffoMethodSelect?: (method: WaffoPayMethod, index: number) => void
   enableWaffoPancakeTopup?: boolean
+  walletTopupNotice?: string
 }
 
 export function RechargeFormCard({
@@ -108,6 +110,7 @@ export function RechargeFormCard({
   waffoMinTopup,
   onWaffoMethodSelect,
   enableWaffoPancakeTopup,
+  walletTopupNotice,
 }: RechargeFormCardProps) {
   const { t } = useTranslation()
   const [localAmount, setLocalAmount] = useState(topupAmount.toString())
@@ -134,8 +137,25 @@ export function RechargeFormCard({
     Array.isArray(topupInfo?.pay_methods) && topupInfo.pay_methods.length > 0
   const hasWaffoPaymentMethods =
     Array.isArray(waffoPayMethods) && waffoPayMethods.length > 0
+  const hasCreemProducts =
+    enableCreemTopup &&
+    Array.isArray(creemProducts) &&
+    creemProducts.length > 0
   const minTopup = getMinTopupAmount(topupInfo)
   const redemptionEnabled = topupInfo?.enable_redemption !== false
+  const normalizedWalletTopupNotice = walletTopupNotice?.trim()
+  const noticeContent = normalizedWalletTopupNotice ? (
+    <Markdown className='prose-neutral dark:prose-invert max-w-none text-sm'>
+      {normalizedWalletTopupNotice}
+    </Markdown>
+  ) : (
+    t(
+      'Online topup is not enabled. Please use redemption code or contact administrator.'
+    )
+  )
+  const noPaymentMethodsContent = normalizedWalletTopupNotice
+    ? noticeContent
+    : t('No payment methods available. Please contact administrator.')
 
   if (loading) {
     return (
@@ -353,11 +373,7 @@ export function RechargeFormCard({
                   </div>
                 ) : hasWaffoPaymentMethods ? null : (
                   <Alert>
-                    <AlertDescription>
-                      {t(
-                        'No payment methods available. Please contact administrator.'
-                      )}
-                    </AlertDescription>
+                    <AlertDescription>{noPaymentMethodsContent}</AlertDescription>
                   </Alert>
                 )}
               </div>
@@ -421,19 +437,12 @@ export function RechargeFormCard({
         </div>
       ) : (
         <Alert>
-          <AlertDescription>
-            {t(
-              'Online topup is not enabled. Please use redemption code or contact administrator.'
-            )}
-          </AlertDescription>
+          <AlertDescription>{noticeContent}</AlertDescription>
         </Alert>
       )}
 
       {/* Creem Products Section */}
-      {enableCreemTopup &&
-        Array.isArray(creemProducts) &&
-        creemProducts.length > 0 &&
-        onCreemProductSelect && (
+      {hasCreemProducts && onCreemProductSelect && (
           <div className='space-y-2.5 border-t pt-4 sm:space-y-3 sm:pt-6'>
             <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
               {t('Creem Payment')}

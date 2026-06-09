@@ -17,9 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useRef, useState } from 'react'
-import { Settings, Zap, BarChart3 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { AnimateInView } from '@/components/animate-in-view'
+import { AnimalIslandIcon } from '@/components/animal-island-icon'
 import { cn } from '@/lib/utils'
 
 const STEP_ORIGINS = [
@@ -64,7 +64,7 @@ export function HowItWorks() {
       desc: t(
         'Add your API keys, set up channels and configure access permissions'
       ),
-      icon: <Settings className='size-6' strokeWidth={1.5} />,
+      icon: <AnimalIslandIcon name='icon-design' size={34} bounce />,
     },
     {
       num: '2',
@@ -72,19 +72,20 @@ export function HowItWorks() {
       desc: t(
         'Connect through OpenAI, Claude, Gemini, and other compatible API routes'
       ),
-      icon: <Zap className='size-6' strokeWidth={1.5} />,
+      icon: <AnimalIslandIcon name='icon-helicopter' size={34} bounce />,
     },
     {
       num: '3',
       title: t('Monitor'),
       desc: t('Track usage, costs and performance with real-time analytics'),
-      icon: <BarChart3 className='size-6' strokeWidth={1.5} />,
+      icon: <AnimalIslandIcon name='icon-map' size={34} bounce />,
     },
   ]
 
   return (
     <section
       ref={sectionRef}
+      data-home-section='how-it-works'
       className='border-border/40 relative z-10 overflow-hidden border-t px-6 py-20 md:py-24'
     >
       <style>
@@ -123,8 +124,14 @@ export function HowItWorks() {
       </div>
 
       <div className='mx-auto max-w-6xl'>
-        <AnimateInView className='mx-auto mb-10 max-w-4xl text-center md:mb-12'>
-          <div className='mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/5 px-3 py-1.5 text-xs font-medium tracking-widest text-cyan-700 uppercase dark:text-cyan-200'>
+        <AnimateInView
+          data-home-slot='section-heading'
+          className='mx-auto mb-10 max-w-4xl text-center md:mb-12'
+        >
+          <div
+            data-home-slot='section-kicker'
+            className='mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-300/15 bg-cyan-300/5 px-3 py-1.5 text-xs font-medium tracking-widest text-cyan-700 uppercase dark:text-cyan-200'
+          >
             <span className='size-1.5 rounded-full bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.9)]' />
             {t('How It Works')}
           </div>
@@ -134,7 +141,10 @@ export function HowItWorks() {
           <div className='mx-auto mt-5 h-px w-72 bg-gradient-to-r from-transparent via-cyan-300/70 to-transparent' />
         </AnimateInView>
 
-        <div className='relative rounded-lg border border-border/50 bg-background/45 p-4 shadow-[0_30px_90px_-60px_rgba(15,23,42,0.6)] backdrop-blur-sm md:p-6 dark:border-cyan-300/10 dark:bg-slate-950/20 dark:shadow-[0_30px_120px_-65px_rgba(56,189,248,0.6)]'>
+        <div
+          data-home-slot='step-shell'
+          className='relative rounded-lg border border-border/50 bg-background/45 p-4 shadow-[0_30px_90px_-60px_rgba(15,23,42,0.6)] backdrop-blur-sm md:p-6 dark:border-cyan-300/10 dark:bg-slate-950/20 dark:shadow-[0_30px_120px_-65px_rgba(56,189,248,0.6)]'
+        >
           <div
             aria-hidden
             className='home-flow-pulse pointer-events-none absolute top-[5rem] left-[18%] hidden h-px w-[64%] origin-center bg-gradient-to-r from-transparent via-cyan-400/60 to-transparent md:block'
@@ -150,6 +160,7 @@ export function HowItWorks() {
             {steps.map((step, i) => (
               <div
                 key={step.num}
+                data-home-slot='step-card-wrap'
                 className={cn(
                   'relative flex flex-col items-center text-center transition-[opacity,transform,filter] duration-1000 ease-out',
                   settled
@@ -158,7 +169,10 @@ export function HowItWorks() {
                 )}
                 style={{ transitionDelay: settled ? `${i * 140}ms` : '0ms' }}
               >
-                <div className='group border-border/50 bg-background/80 relative min-h-[230px] w-full rounded-lg border p-6 shadow-[0_22px_55px_-36px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors dark:border-cyan-300/14 dark:bg-slate-950/45 dark:shadow-[0_24px_70px_-40px_rgba(56,189,248,0.65)]'>
+                <div
+                  data-home-slot='step-card'
+                  className='group border-border/50 bg-background/80 relative min-h-[230px] w-full rounded-lg border p-6 shadow-[0_22px_55px_-36px_rgba(15,23,42,0.5)] backdrop-blur-md transition-colors dark:border-cyan-300/14 dark:bg-slate-950/45 dark:shadow-[0_24px_70px_-40px_rgba(56,189,248,0.65)]'
+                >
                   <div className='pointer-events-none absolute inset-0 rounded-lg bg-[linear-gradient(135deg,rgba(125,211,252,0.20),transparent_26%,transparent_70%,rgba(168,85,247,0.16))] opacity-0 transition-opacity duration-500 group-hover:opacity-100 dark:opacity-70' />
                   <div className='absolute top-0 left-8 h-px w-20 bg-gradient-to-r from-transparent via-cyan-300/80 to-transparent' />
                   <div className='absolute right-8 bottom-0 h-px w-20 bg-gradient-to-r from-transparent via-violet-300/80 to-transparent' />

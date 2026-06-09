@@ -23,8 +23,6 @@ export type HomeContactConfig = {
   imageGenerationUrl: string
   contactUrl: string
   rechargeUrl: string
-  contactTitle: string
-  contactDescription: string
 }
 
 export const DEFAULT_HOME_CONTACT_CONFIG: HomeContactConfig = {
@@ -34,9 +32,6 @@ export const DEFAULT_HOME_CONTACT_CONFIG: HomeContactConfig = {
   imageGenerationUrl: '',
   contactUrl: '',
   rechargeUrl: '/topup',
-  contactTitle: 'Contact us',
-  contactDescription:
-    'Configure contact methods, recharge entry, and service links for visitors.',
 }
 
 function normalizeString(value: unknown): string | undefined {
@@ -77,9 +72,6 @@ export function parseHomeContactConfig(
         normalizeString(parsed.imageGenerationUrl) ?? base.imageGenerationUrl,
       contactUrl: normalizeString(parsed.contactUrl) ?? base.contactUrl,
       rechargeUrl: normalizeString(parsed.rechargeUrl) ?? base.rechargeUrl,
-      contactTitle: normalizeString(parsed.contactTitle) ?? base.contactTitle,
-      contactDescription:
-        normalizeString(parsed.contactDescription) ?? base.contactDescription,
     }
   } catch {
     return base

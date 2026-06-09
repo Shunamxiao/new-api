@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { type QueryClient } from '@tanstack/react-query'
 import {
   createRootRouteWithContext,
@@ -36,7 +36,8 @@ import { getSetupStatus } from '@/features/setup/api'
 
 function RootComponent() {
   // Load system configuration (logo, system name, etc.) from backend
-  useSystemConfig({ autoLoad: true })
+  const { themePreset } = useSystemConfig({ autoLoad: true })
+  const [showDevtools, setShowDevtools] = useState(false)
 
   useEffect(() => {
     const aff = new URLSearchParams(window.location.search).get('aff')?.trim()
@@ -45,12 +46,25 @@ function RootComponent() {
     }
   }, [])
 
+  useEffect(() => {
+    if (import.meta.env.MODE !== 'development') return
+
+    const media = window.matchMedia('(min-width: 768px)')
+    const syncDevtoolsVisibility = () => {
+      setShowDevtools(media.matches)
+    }
+
+    syncDevtoolsVisibility()
+    media.addEventListener('change', syncDevtoolsVisibility)
+    return () => media.removeEventListener('change', syncDevtoolsVisibility)
+  }, [])
+
   return (
-    <ThemeCustomizationProvider>
+    <ThemeCustomizationProvider defaultPreset={themePreset}>
       <NavigationProgress />
       <Outlet />
       <Toaster closeButton duration={5000} position='top-center' richColors />
-      {import.meta.env.MODE === 'development' && (
+      {import.meta.env.MODE === 'development' && showDevtools && (
         <>
           <ReactQueryDevtools buttonPosition='bottom-left' />
           <TanStackRouterDevtools position='bottom-right' />

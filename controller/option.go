@@ -75,6 +75,25 @@ func buildCompletionRatioMetaValue(optionValues map[string]string) string {
 	return string(jsonBytes)
 }
 
+func isValidThemePreset(value string) bool {
+	switch value {
+	case "default",
+		"anthropic",
+		"simple-large",
+		"animal-island",
+		"underground",
+		"rose-garden",
+		"lake-view",
+		"sunset-glow",
+		"forest-whisper",
+		"ocean-breeze",
+		"lavender-dream":
+		return true
+	default:
+		return false
+	}
+}
+
 func GetOptions(c *gin.Context) {
 	var options []*model.Option
 	optionValues := make(map[string]string)
@@ -220,6 +239,14 @@ func UpdateOption(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
 				"message": "无效的主题值，可选值：default（新版前端）、classic（经典前端）",
+			})
+			return
+		}
+	case "theme.preset":
+		if !isValidThemePreset(option.Value.(string)) {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "无效的主题预设值",
 			})
 			return
 		}

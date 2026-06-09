@@ -7,10 +7,12 @@ import (
 
 type ThemeSettings struct {
 	Frontend string `json:"frontend"`
+	Preset   string `json:"preset"`
 }
 
 var themeSettings = ThemeSettings{
 	Frontend: "classic",
+	Preset:   "default",
 }
 
 func init() {

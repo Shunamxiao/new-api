@@ -16,14 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect, useState } from 'react'
+import { AnimalIslandIcon } from '@/components/animal-island-icon'
+import { Logo } from '@/assets/logo'
 import { cn } from '@/lib/utils'
 
 interface HeaderLogoProps {
   src: string
   alt?: string
-  loading: boolean
-  logoLoaded: boolean
+  loading?: boolean
+  logoLoaded?: boolean
   className?: string
+  fallbackClassName?: string
 }
 
 /**
@@ -33,17 +37,69 @@ interface HeaderLogoProps {
 export function HeaderLogo({
   src,
   alt = 'logo',
-  loading,
-  logoLoaded,
+  loading = false,
+  logoLoaded = true,
   className,
+  fallbackClassName,
 }: HeaderLogoProps) {
+  const [imageStatus, setImageStatus] = useState<
+    'idle' | 'loading' | 'loaded' | 'failed'
+  >('idle')
+
+  useEffect(() => {
+    if (loading || !src) {
+      setImageStatus('idle')
+      return
+    }
+
+    let cancelled = false
+    const image = new Image()
+
+    setImageStatus('loading')
+    image.onload = () => {
+      if (!cancelled) setImageStatus('loaded')
+    }
+    image.onerror = () => {
+      if (!cancelled) setImageStatus('failed')
+    }
+    image.src = src
+
+    return () => {
+      cancelled = true
+      image.onload = null
+      image.onerror = null
+    }
+  }, [loading, src])
+
+  if (loading || !src || imageStatus !== 'loaded' || !logoLoaded) {
+    return (
+      <span
+        aria-label={alt}
+        role='img'
+        data-slot='brand-logo-fallback'
+        className={cn(
+          'bg-primary/12 text-primary flex size-6 items-center justify-center rounded-full',
+          className,
+          fallbackClassName
+        )}
+      >
+        <AnimalIslandIcon
+          name='icon-map'
+          size={18}
+          className='animal-brand-logo-icon hidden'
+        />
+        <Logo className='default-brand-logo-icon size-4' />
+      </span>
+    )
+  }
+
   return (
     <img
       src={src}
       alt={alt}
+      onError={() => setImageStatus('failed')}
       className={cn(
         'h-6 w-6 rounded-full transition-opacity duration-200',
-        !loading && logoLoaded ? 'opacity-100' : 'opacity-0',
         className
       )}
     />

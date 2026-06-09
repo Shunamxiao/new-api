@@ -97,6 +97,7 @@ export interface SystemStatus {
     home_hero_highlight?: string
     home_hero_description?: string
     home_contact_config?: string
+    wallet_topup_notice?: string
     github_oauth?: boolean
     github_client_id?: string
     discord_oauth?: boolean
@@ -133,6 +134,7 @@ export interface SystemStatus {
     register_enabled?: boolean
     password_login_enabled?: boolean
     password_register_enabled?: boolean
+    theme_preset?: string
     custom_oauth_providers?: CustomOAuthProviderInfo[]
     [key: string]: unknown
   }
@@ -145,6 +147,7 @@ export interface SystemStatus {
   home_hero_highlight?: string
   home_hero_description?: string
   home_contact_config?: string
+  wallet_topup_notice?: string
   github_oauth?: boolean
   github_client_id?: string
   discord_oauth?: boolean
@@ -181,6 +184,7 @@ export interface SystemStatus {
   register_enabled?: boolean
   password_login_enabled?: boolean
   password_register_enabled?: boolean
+  theme_preset?: string
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }

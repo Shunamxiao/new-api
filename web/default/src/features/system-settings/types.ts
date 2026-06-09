@@ -58,6 +58,7 @@ export type DeleteLogsResponse = {
 
 export type SiteSettings = {
   'theme.frontend': string
+  'theme.preset': string
   Notice: string
   SystemName: string
   Logo: string
@@ -190,6 +191,7 @@ export type ModelSettings = {
 }
 
 export type BillingSettings = {
+  WalletTopupNotice: string
   QuotaForNewUser: number
   PreConsumedQuota: number
   QuotaForInviter: number

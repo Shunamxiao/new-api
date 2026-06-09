@@ -32,7 +32,9 @@ const STATUS_RELATED_KEYS = [
   'HomeHeroHighlight',
   'HomeHeroDescription',
   'HomeContactConfig',
+  'WalletTopupNotice',
   'theme.frontend',
+  'theme.preset',
   'HeaderNavModules',
   'SidebarModulesAdmin',
   'Notice',
@@ -48,49 +50,75 @@ const STATUS_RELATED_KEYS = [
 
 function syncStatusCache(key: string, value: unknown): void {
   try {
+    if (!getStatusPatchKey(key)) {
+      window.localStorage.removeItem('status')
+      return
+    }
+
     const raw = window.localStorage.getItem('status')
     const status =
       raw && typeof raw === 'string'
         ? (JSON.parse(raw) as Record<string, unknown>)
         : {}
-
-    if (key === 'SystemName') {
-      status.system_name = value
-      window.localStorage.setItem('status', JSON.stringify(status))
+    const patched = patchStatusData(status, key, value)
+    if (patched && typeof patched === 'object' && !Array.isArray(patched)) {
+      window.localStorage.setItem('status', JSON.stringify(patched))
       return
     }
-
-    if (key === 'Logo') {
-      status.logo = value
-      window.localStorage.setItem('status', JSON.stringify(status))
-      return
-    }
-
-    if (key === 'Footer') {
-      status.footer_html = value
-      window.localStorage.setItem('status', JSON.stringify(status))
-      return
-    }
-
-    const heroStatusKeys: Record<string, string> = {
-      HomeHeroBadge: 'home_hero_badge',
-      HomeHeroTitle: 'home_hero_title',
-      HomeHeroHighlight: 'home_hero_highlight',
-      HomeHeroDescription: 'home_hero_description',
-      HomeContactConfig: 'home_contact_config',
-    }
-
-    const heroStatusKey = heroStatusKeys[key]
-    if (heroStatusKey) {
-      status[heroStatusKey] = value
-      window.localStorage.setItem('status', JSON.stringify(status))
-      return
-    }
-
-    window.localStorage.removeItem('status')
   } catch {
     /* empty */
   }
+}
+
+function getStatusPatchKey(key: string): string | null {
+  if (key === 'SystemName') return 'system_name'
+  if (key === 'Logo') return 'logo'
+  if (key === 'Footer') return 'footer_html'
+  if (key === 'theme.preset') return 'theme_preset'
+
+  const heroStatusKeys: Record<string, string> = {
+    HomeHeroBadge: 'home_hero_badge',
+    HomeHeroTitle: 'home_hero_title',
+    HomeHeroHighlight: 'home_hero_highlight',
+    HomeHeroDescription: 'home_hero_description',
+    HomeContactConfig: 'home_contact_config',
+    WalletTopupNotice: 'wallet_topup_notice',
+  }
+
+  if (heroStatusKeys[key]) return heroStatusKeys[key]
+  if (key === 'HeaderNavModules' || key === 'SidebarModulesAdmin') return key
+
+  return null
+}
+
+function patchStatusData(
+  status: unknown,
+  key: string,
+  value: unknown
+): Record<string, unknown> | unknown {
+  const statusKey = getStatusPatchKey(key)
+  if (!statusKey) return status
+
+  const next =
+    status && typeof status === 'object' && !Array.isArray(status)
+      ? { ...(status as Record<string, unknown>) }
+      : {}
+
+  const nestedData =
+    next.data && typeof next.data === 'object' && !Array.isArray(next.data)
+      ? { ...(next.data as Record<string, unknown>) }
+      : null
+
+  const setValue = (statusKey: string) => {
+    next[statusKey] = value
+    if (nestedData) {
+      nestedData[statusKey] = value
+      next.data = nestedData
+    }
+  }
+
+  setValue(statusKey)
+  return next
 }
 
 export function useUpdateOption() {
@@ -105,6 +133,9 @@ export function useUpdateOption() {
 
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.includes(variables.key)) {
+          queryClient.setQueryData(['status'], (status: unknown) =>
+            patchStatusData(status, variables.key, variables.value)
+          )
           queryClient.invalidateQueries({ queryKey: ['status'] })
           syncStatusCache(variables.key, variables.value)
         }

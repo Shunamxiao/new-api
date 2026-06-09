@@ -16,11 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { SystemInfoSection } from '../general/system-info-section'
+import {
+  SystemInfoSection,
+  type FrontendThemeValue,
+} from '../general/system-info-section'
 import {
   parseHeaderNavModules,
   parseSidebarModulesAdmin,
-  serializeHeaderNavModules,
   serializeSidebarModulesAdmin,
 } from '../maintenance/config'
 import { HeaderNavigationSection } from '../maintenance/header-navigation-section'
@@ -38,7 +40,8 @@ const SITE_SECTIONS = [
       <SystemInfoSection
         defaultValues={{
           theme: {
-            frontend: settings['theme.frontend'] as 'default' | 'classic',
+            frontend: settings['theme.frontend'] as FrontendThemeValue,
+            preset: settings['theme.preset'],
           },
           SystemName: settings.SystemName,
           Logo: settings.Logo,
@@ -67,7 +70,7 @@ const SITE_SECTIONS = [
   },
   {
     id: 'contact',
-    titleKey: 'Contact Us',
+    titleKey: 'Home service links',
     build: (settings: SiteSettings) => (
       <ContactSection defaultValue={settings.HomeContactConfig ?? ''} />
     ),
@@ -77,11 +80,10 @@ const SITE_SECTIONS = [
     titleKey: 'Header navigation',
     build: (settings: SiteSettings) => {
       const headerNavConfig = parseHeaderNavModules(settings.HeaderNavModules)
-      const headerNavSerialized = serializeHeaderNavModules(headerNavConfig)
       return (
         <HeaderNavigationSection
           config={headerNavConfig}
-          initialSerialized={headerNavSerialized}
+          persistedValue={settings.HeaderNavModules ?? ''}
         />
       )
     },

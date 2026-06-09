@@ -64,26 +64,32 @@ function SettingsPageFrame(props: SettingsPageFrameProps) {
       actionsContainer={actionsContainer}
       titleStatusContainer={titleStatusContainer}
     >
-      <SectionPageLayout>
-        <SectionPageLayout.Title>
-          <span className='inline-flex max-w-full min-w-0 items-center gap-2 align-middle'>
-            <span className='truncate'>{props.title}</span>
-            <span
-              ref={setTitleStatusContainer}
-              className='inline-flex shrink-0'
+      <div
+        data-slot='settings-page'
+        data-settings-scope='system-settings'
+        className='flex h-full min-h-0 flex-1 flex-col'
+      >
+        <SectionPageLayout>
+          <SectionPageLayout.Title>
+            <span className='inline-flex max-w-full min-w-0 items-center gap-2 align-middle'>
+              <span className='truncate'>{props.title}</span>
+              <span
+                ref={setTitleStatusContainer}
+                className='inline-flex shrink-0'
+              />
+            </span>
+          </SectionPageLayout.Title>
+          <SectionPageLayout.Actions>
+            <div
+              ref={setActionsContainer}
+              className='flex flex-wrap items-center justify-end gap-2'
             />
-          </span>
-        </SectionPageLayout.Title>
-        <SectionPageLayout.Actions>
-          <div
-            ref={setActionsContainer}
-            className='flex flex-wrap items-center justify-end gap-2'
-          />
-        </SectionPageLayout.Actions>
-        <SectionPageLayout.Content>
-          <div className='flex w-full flex-col gap-4'>{props.children}</div>
-        </SectionPageLayout.Content>
-      </SectionPageLayout>
+          </SectionPageLayout.Actions>
+          <SectionPageLayout.Content>
+            <div className='flex w-full flex-col gap-4'>{props.children}</div>
+          </SectionPageLayout.Content>
+        </SectionPageLayout>
+      </div>
     </SettingsPageProvider>
   )
 }

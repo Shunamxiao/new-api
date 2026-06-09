@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
+import { HeaderLogo } from './header-logo'
 
 interface FooterLink {
   text: string
@@ -153,6 +154,9 @@ export function Footer(props: FooterProps) {
   const {
     systemName,
     logo: systemLogo,
+    logoFailed,
+    logoLoaded,
+    loading,
     footerHtml,
     demoSiteEnabled,
   } = useSystemConfig()
@@ -254,9 +258,11 @@ export function Footer(props: FooterProps) {
           {/* Brand column */}
           <div className='shrink-0'>
             <Link to='/' className='group flex items-center gap-2.5'>
-              <img
+              <HeaderLogo
                 src={displayLogo}
                 alt={displayName}
+                loading={loading}
+                logoLoaded={logoLoaded && !logoFailed}
                 className='size-7 rounded-lg object-contain'
               />
               <span className='text-sm font-semibold tracking-tight'>

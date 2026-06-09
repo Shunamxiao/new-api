@@ -24,6 +24,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { WalletPageSection } from './wallet-page-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -51,6 +52,13 @@ const getGroupDefaults = (settings: BillingSettings) => ({
 })
 
 const BILLING_SECTIONS = [
+  {
+    id: 'wallet-page',
+    titleKey: 'Wallet page configuration',
+    build: (settings: BillingSettings) => (
+      <WalletPageSection defaultValue={settings.WalletTopupNotice ?? ''} />
+    ),
+  },
   {
     id: 'quota',
     titleKey: 'Quota Settings',

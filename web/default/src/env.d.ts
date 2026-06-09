@@ -18,6 +18,9 @@ For commercial licensing, please contact support@quantumnous.com
 */
 /// <reference types="@rsbuild/core/types" />
 
+// animal-island-ui 的样式入口仅用于副作用导入。
+declare module 'animal-island-ui/style'
+
 declare module '@visactor/react-vchart' {
   export const VChart: React.ComponentType<Record<string, unknown>>
 }

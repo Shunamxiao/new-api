@@ -43,6 +43,11 @@ export const THEME_PRESETS = [
     swatches: ['oklch(0.15 0 0)', 'oklch(0.99 0 0)'],
   },
   {
+    value: 'animal-island',
+    name: 'Animal Island',
+    swatches: ['oklch(0.952 0.035 86)', 'oklch(0.74 0.118 178)'],
+  },
+  {
     value: 'underground',
     name: 'Underground',
     swatches: ['oklch(0.5315 0.0694 156.19)', 'oklch(0.5748 0.0862 336.52)'],
