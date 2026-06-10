@@ -62,6 +62,7 @@ export async function getPlaygroundOptions(): Promise<PlaygroundOptions> {
     return {
       groups: [],
       group_models: {},
+      model_endpoints: {},
       tokens: [],
     }
   }
@@ -69,6 +70,7 @@ export async function getPlaygroundOptions(): Promise<PlaygroundOptions> {
   const raw = data.data as {
     groups?: Array<GroupOption & { ratio?: number | string }>
     group_models?: Record<string, string[]>
+    model_endpoints?: Record<string, string[]>
     tokens?: PlaygroundTokenOption[]
   }
 
@@ -78,6 +80,7 @@ export async function getPlaygroundOptions(): Promise<PlaygroundOptions> {
       ratio: typeof group.ratio === 'number' ? group.ratio : undefined,
     })),
     group_models: raw.group_models ?? {},
+    model_endpoints: raw.model_endpoints ?? {},
     tokens: raw.tokens ?? [],
   }
 }

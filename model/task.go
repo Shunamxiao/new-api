@@ -71,7 +71,7 @@ func (t *Task) SetData(data any) {
 }
 
 func (t *Task) GetData(v any) error {
-	return common.Unmarshal(t.Data, &v)
+	return common.Unmarshal(t.Data, v)
 }
 
 type Properties struct {
@@ -293,6 +293,7 @@ func GetTimedOutUnfinishedTasks(cutoffUnix int64, limit int) []*Task {
 	var tasks []*Task
 	err := DB.Where("progress != ?", "100%").
 		Where("status NOT IN ?", []string{TaskStatusFailure, TaskStatusSuccess}).
+		Where("platform <> ?", constant.TaskPlatformImageGeneration).
 		Where("submit_time < ?", cutoffUnix).
 		Order("submit_time").
 		Limit(limit).
@@ -307,7 +308,13 @@ func GetAllUnFinishSyncTasks(limit int) []*Task {
 	var tasks []*Task
 	var err error
 	// get all tasks progress is not 100%
-	err = DB.Where("progress != ?", "100%").Where("status != ?", TaskStatusFailure).Where("status != ?", TaskStatusSuccess).Limit(limit).Order("id").Find(&tasks).Error
+	err = DB.Where("progress != ?", "100%").
+		Where("status != ?", TaskStatusFailure).
+		Where("status != ?", TaskStatusSuccess).
+		Where("platform <> ?", constant.TaskPlatformImageGeneration).
+		Limit(limit).
+		Order("id").
+		Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
@@ -401,13 +408,11 @@ func (Task *Task) Update() error {
 	return err
 }
 
-// UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
-// Returns (true, nil) if this caller won the update, (false, nil) if
-// another process already moved the task out of fromStatus.
+// UpdateWithStatus 使用 fromStatus 做条件更新，避免并发任务互相覆盖最终状态。
+// 返回 true 表示当前调用方更新成功，返回 false 表示任务状态已被其他流程推进。
 //
-// Uses Model().Select("*").Updates() instead of Save() because GORM's Save
-// falls back to INSERT ON CONFLICT when the WHERE-guarded UPDATE matches
-// zero rows, which silently bypasses the CAS guard.
+// 使用 Model().Select("*").Updates() 避开 GORM Save 在零行更新时回退 INSERT 的行为，
+// 确保状态条件始终作为 CAS 保护生效。
 func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
 	result := DB.Model(t).Where("status = ?", fromStatus).Select("*").Updates(t)
 	if result.Error != nil {
@@ -416,8 +421,22 @@ func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
 	return result.RowsAffected > 0, nil
 }
 
-// TaskBulkUpdate performs an unconditional bulk UPDATE by upstream task_id strings.
-// Same caveats as TaskBulkUpdateByID — no CAS guard.
+func (t *Task) UpdateWithStatusAndFailReason(fromStatus TaskStatus, failReasons []string) (bool, error) {
+	if len(failReasons) == 0 {
+		return false, nil
+	}
+	result := DB.Model(t).
+		Where("status = ?", fromStatus).
+		Where("fail_reason IN ?", failReasons).
+		Select("*").
+		Updates(t)
+	if result.Error != nil {
+		return false, result.Error
+	}
+	return result.RowsAffected > 0, nil
+}
+
+// TaskBulkUpdate 按上游 task_id 批量更新，不带 CAS 保护。
 func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 	if len(taskIds) == 0 {
 		return nil
@@ -427,11 +446,8 @@ func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 		Updates(params).Error
 }
 
-// TaskBulkUpdateByID performs an unconditional bulk UPDATE by primary key IDs.
-// WARNING: This function has NO CAS (Compare-And-Swap) guard — it will overwrite
-// any concurrent status changes. DO NOT use in billing/quota lifecycle flows
-// (e.g., timeout, success, failure transitions that trigger refunds or settlements).
-// For status transitions that involve billing, use Task.UpdateWithStatus() instead.
+// TaskBulkUpdateByID 按主键批量更新，不带 CAS 保护。
+// 涉及计费、退款、结算或最终态流转时应使用 Task.UpdateWithStatus()。
 func TaskBulkUpdateByID(ids []int64, params map[string]any) error {
 	if len(ids) == 0 {
 		return nil

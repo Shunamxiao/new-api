@@ -8,6 +8,7 @@ var (
 		"o3-pro",
 		"o3-deep-research",
 		"o4-mini-deep-research",
+		"codex",
 	}
 	ImageGenerationModels = []string{
 		"dall-e-3",
@@ -28,6 +29,7 @@ var (
 )
 
 func IsOpenAIResponseOnlyModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
 	for _, m := range OpenAIResponseOnlyModels {
 		if strings.Contains(modelName, m) {
 			return true
@@ -57,4 +59,36 @@ func IsOpenAITextModel(modelName string) bool {
 		}
 	}
 	return false
+}
+
+func IsEmbeddingModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.Contains(modelName, "embedding") ||
+		strings.Contains(modelName, "embed") ||
+		strings.HasPrefix(modelName, "m3e") ||
+		strings.Contains(modelName, "bge-")
+}
+
+func IsRerankModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.Contains(modelName, "rerank") ||
+		strings.Contains(modelName, "reranker")
+}
+
+func IsVideoGenerationModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.Contains(modelName, "sora") ||
+		strings.Contains(modelName, "video") ||
+		strings.Contains(modelName, "veo") ||
+		strings.Contains(modelName, "kling") ||
+		strings.Contains(modelName, "vidu") ||
+		strings.Contains(modelName, "jimeng") ||
+		strings.Contains(modelName, "seedance")
+}
+
+func IsAudioModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.Contains(modelName, "whisper") ||
+		strings.Contains(modelName, "audio") ||
+		strings.HasPrefix(modelName, "tts-")
 }

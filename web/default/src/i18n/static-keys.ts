@@ -34,6 +34,7 @@ export const STATIC_I18N_KEYS = [
   // System settings sidebar
   'System Administration',
   'General',
+  'Usage Guide',
   'Authentication',
   'Request Limits',
   'Content',
@@ -91,6 +92,7 @@ export const STATIC_I18N_KEYS = [
   'Successfully created {{count}} API Key(s)',
   'Successfully deleted {{count}} API key(s)',
   'Enter API key for this channel',
+  'Save API key usage guide',
 
   // Users
   'Root',

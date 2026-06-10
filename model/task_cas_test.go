@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -188,6 +189,32 @@ func TestUpdateWithStatus_Lose(t *testing.T) {
 	assert.EqualValues(t, TaskStatusFailure, reloaded.Status) // unchanged
 }
 
+func TestUpdateWithStatusAndFailReason_Win(t *testing.T) {
+	truncateTables(t)
+
+	task := &Task{
+		TaskID:     "task_cas_fail_reason_win",
+		Platform:   constant.TaskPlatformImageGeneration,
+		Status:     TaskStatusFailure,
+		FailReason: "Failed to get channel info, channel ID: 0",
+		Progress:   "100%",
+		Data:       json.RawMessage(`{}`),
+	}
+	insertTask(t, task)
+
+	task.Status = TaskStatusSuccess
+	task.FailReason = ""
+	task.Progress = "100%"
+	won, err := task.UpdateWithStatusAndFailReason(TaskStatusFailure, []string{"Failed to get channel info, channel ID: 0"})
+	require.NoError(t, err)
+	assert.True(t, won)
+
+	var reloaded Task
+	require.NoError(t, DB.First(&reloaded, task.ID).Error)
+	assert.EqualValues(t, TaskStatusSuccess, reloaded.Status)
+	assert.Empty(t, reloaded.FailReason)
+}
+
 func TestUpdateWithStatus_ConcurrentWinner(t *testing.T) {
 	truncateTables(t)
 
@@ -233,4 +260,36 @@ func TestUpdateWithStatus_ConcurrentWinner(t *testing.T) {
 		}
 	}
 	assert.Equal(t, 1, winCount, "exactly one goroutine should win the CAS")
+}
+
+func TestImageGenerationTasksAreExcludedFromGenericPolling(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Now().Unix()
+	imageTask := &Task{
+		TaskID:     "task_image_generation",
+		Platform:   constant.TaskPlatformImageGeneration,
+		Status:     TaskStatusInProgress,
+		Progress:   "10%",
+		SubmitTime: now - 3600,
+		Data:       json.RawMessage(`{}`),
+	}
+	videoTask := &Task{
+		TaskID:     "task_video",
+		Platform:   constant.TaskPlatformSuno,
+		Status:     TaskStatusInProgress,
+		Progress:   "10%",
+		SubmitTime: now - 3600,
+		Data:       json.RawMessage(`{}`),
+	}
+	insertTask(t, imageTask)
+	insertTask(t, videoTask)
+
+	unfinished := GetAllUnFinishSyncTasks(20)
+	require.Len(t, unfinished, 1)
+	assert.Equal(t, "task_video", unfinished[0].TaskID)
+
+	timedOut := GetTimedOutUnfinishedTasks(now, 20)
+	require.Len(t, timedOut, 1)
+	assert.Equal(t, "task_video", timedOut[0].TaskID)
 }

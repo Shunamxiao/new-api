@@ -27,27 +27,8 @@ import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
 import { usePlaygroundState, useChatHandler } from './hooks'
 import { createUserMessage, createLoadingAssistantMessage } from './lib'
+import { filterModelsForMode } from './lib/model-capabilities'
 import type { Message as MessageType } from './types'
-
-function isImageGenerationModel(modelName: string) {
-  const model = modelName.toLowerCase()
-  return (
-    model.includes('dall-e-3') ||
-    model.includes('dall-e-2') ||
-    model.includes('gpt-image-') ||
-    model.startsWith('imagen-') ||
-    model.includes('flux-') ||
-    model.includes('flux.1-')
-  )
-}
-
-function filterModelsForMode(modelNames: string[], mode: 'chat' | 'image') {
-  if (mode === 'image') {
-    const imageModels = modelNames.filter(isImageGenerationModel)
-    return imageModels.length > 0 ? imageModels : modelNames
-  }
-  return modelNames.filter((model) => !isImageGenerationModel(model))
-}
 
 function getOptionsLoadErrorMessage(error: unknown, t: (key: string) => string) {
   if (isAxiosError(error)) {
@@ -105,6 +86,7 @@ export function Playground() {
         return {
           groups: [],
           group_models: {},
+          model_endpoints: {},
           tokens: [],
         }
       }
@@ -113,20 +95,79 @@ export function Playground() {
 
   const currentGroupModels = useMemo(() => {
     const names = optionsData?.group_models?.[config.group] ?? []
-    return filterModelsForMode(names, config.mode).map((model) => ({
+    return filterModelsForMode(
+      names,
+      config.mode,
+      optionsData?.model_endpoints
+    ).map((model) => ({
       label: model,
       value: model,
     }))
-  }, [optionsData?.group_models, config.group, config.mode])
+  }, [
+    optionsData?.group_models,
+    optionsData?.model_endpoints,
+    config.group,
+    config.mode,
+  ])
 
   const availableTokens = useMemo(() => {
     const allTokens = optionsData?.tokens ?? []
     return allTokens.filter(
       (token) =>
+        config.model &&
         token.group === config.group &&
         token.allowed_models.includes(config.model)
     )
   }, [optionsData?.tokens, config.group, config.model])
+
+  const selectedToken = useMemo(
+    () => availableTokens.find((token) => token.id === config.token_id),
+    [availableTokens, config.token_id]
+  )
+
+  const submitDisabledReason = useMemo(() => {
+    if (isLoadingOptions) {
+      return t('Playground options are still loading.')
+    }
+    if (!optionsData || optionsData.groups.length === 0) {
+      return t('No available playground groups.')
+    }
+    const isGroupValid = optionsData.groups.some(
+      (group) => group.value === config.group
+    )
+    if (!isGroupValid) {
+      return t('Selected group is unavailable.')
+    }
+    const isModelValid = currentGroupModels.some(
+      (model) => model.value === config.model
+    )
+    if (!config.model || !isModelValid) {
+      return config.mode === 'image'
+        ? t('Select an image generation model.')
+        : t('Select a chat-compatible model.')
+    }
+    if (!selectedToken) {
+      return t('Selected API key cannot use the current model.')
+    }
+    return null
+  }, [
+    isLoadingOptions,
+    optionsData,
+    config.group,
+    config.model,
+    config.mode,
+    currentGroupModels,
+    selectedToken,
+    t,
+  ])
+
+  const ensureCanSubmit = useCallback(() => {
+    if (submitDisabledReason) {
+      toast.error(submitDisabledReason)
+      return false
+    }
+    return true
+  }, [submitDisabledReason])
 
   useEffect(() => {
     if (!optionsData) return
@@ -167,6 +208,8 @@ export function Playground() {
   }, [availableTokens, config.token_id, updateConfig])
 
   const handleSendMessage = (text: string) => {
+    if (!ensureCanSubmit()) return
+
     const userMessage = createUserMessage(text)
     const assistantMessage = createLoadingAssistantMessage()
 
@@ -187,6 +230,7 @@ export function Playground() {
     // Find the message index and regenerate from there
     const messageIndex = messages.findIndex((m) => m.key === message.key)
     if (messageIndex === -1) return
+    if (!ensureCanSubmit()) return
 
     // Remove messages after this one and regenerate
     const messagesUpToHere = messages.slice(0, messageIndex)
@@ -218,9 +262,12 @@ export function Playground() {
           : m
       )
 
+      const shouldSubmit = submit && updated[index].from === 'user'
+      if (shouldSubmit && !ensureCanSubmit()) return
+
       setEditingMessageKey(null)
 
-      if (!submit || updated[index].from !== 'user') {
+      if (!shouldSubmit) {
         updateMessages(updated)
         return
       }
@@ -232,7 +279,7 @@ export function Playground() {
       updateMessages(toSubmit)
       sendChat(toSubmit)
     },
-    [editingMessageKey, messages, updateMessages, sendChat]
+    [editingMessageKey, messages, updateMessages, sendChat, ensureCanSubmit]
   )
 
   const handleDeleteMessage = (message: MessageType) => {
@@ -296,6 +343,7 @@ export function Playground() {
           onStop={stopGeneration}
           onSubmit={handleSendMessage}
           onTokenChange={(value) => updateConfig('token_id', value)}
+          submitDisabledReason={submitDisabledReason}
           tokenValue={config.token_id}
           tokens={availableTokens}
         />

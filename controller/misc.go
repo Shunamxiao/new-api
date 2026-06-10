@@ -72,6 +72,7 @@ func GetStatus(c *gin.Context) {
 		"home_hero_description":       common.OptionMap["HomeHeroDescription"],
 		"home_contact_config":         common.OptionMap["HomeContactConfig"],
 		"wallet_topup_notice":         common.OptionMap["WalletTopupNotice"],
+		"keys_usage_guide":            common.OptionMap["KeysUsageGuide"],
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
 		"wechat_login":                common.WeChatAuthEnabled,
 		"server_address":              system_setting.ServerAddress,

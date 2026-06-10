@@ -70,6 +70,7 @@ export type SiteSettings = {
   HomeHeroHighlight: string
   HomeHeroDescription: string
   HomeContactConfig: string
+  KeysUsageGuide: string
   ServerAddress: string
   'legal.user_agreement': string
   'legal.privacy_policy': string

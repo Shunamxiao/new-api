@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 
@@ -14,9 +15,11 @@ func resetPlaygroundTestData(t *testing.T) {
 	t.Helper()
 	require.NoError(t, model.DB.Exec("DELETE FROM abilities").Error)
 	require.NoError(t, model.DB.Exec("DELETE FROM tokens").Error)
+	model.InvalidatePricingCache()
 	t.Cleanup(func() {
 		model.DB.Exec("DELETE FROM abilities")
 		model.DB.Exec("DELETE FROM tokens")
+		model.InvalidatePricingCache()
 	})
 }
 
@@ -174,4 +177,30 @@ func TestBuildPlaygroundOptionsReturnsUsableMaskedTokens(t *testing.T) {
 	require.Equal(t, usable.GetMaskedKey(), options.Tokens[0].MaskedKey)
 	require.NotEqual(t, usable.Key, options.Tokens[0].MaskedKey)
 	require.Equal(t, []string{"gpt-image-2"}, options.Tokens[0].AllowedModels)
+	require.Equal(
+		t,
+		[]string{string(constant.EndpointTypeImageGeneration)},
+		options.ModelEndpoints["gpt-image-2"],
+	)
+}
+
+func TestValidatePlaygroundEndpointChecksRouteCompatibility(t *testing.T) {
+	resetPlaygroundTestData(t)
+
+	require.NoError(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "gpt-4o",
+	}, "/pg/chat/completions"))
+	require.NoError(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "gpt-image-2",
+	}, "/pg/images/generations"))
+
+	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "gpt-image-2",
+	}, "/pg/chat/completions"))
+	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "text-embedding-3-small",
+	}, "/pg/chat/completions"))
+	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "gpt-4o",
+	}, "/pg/images/generations"))
 }

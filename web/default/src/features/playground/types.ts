@@ -189,5 +189,6 @@ export interface PlaygroundTokenOption {
 export interface PlaygroundOptions {
   groups: GroupOption[]
   group_models: Record<string, string[]>
+  model_endpoints: Record<string, string[]>
   tokens: PlaygroundTokenOption[]
 }

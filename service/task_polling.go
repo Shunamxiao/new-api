@@ -97,6 +97,10 @@ func TaskPollingLoop() {
 		allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
 		platformTask := make(map[constant.TaskPlatform][]*model.Task)
 		for _, t := range allTasks {
+			if t.Platform == constant.TaskPlatformImageGeneration {
+				logger.LogWarn(ctx, fmt.Sprintf("skip image generation task in generic polling: %s", t.TaskID))
+				continue
+			}
 			platformTask[t.Platform] = append(platformTask[t.Platform], t)
 		}
 		for platform, tasks := range platformTask {
@@ -140,6 +144,8 @@ func TaskPollingLoop() {
 // DispatchPlatformUpdate 按平台分发轮询更新
 func DispatchPlatformUpdate(platform constant.TaskPlatform, taskChannelM map[int][]string, taskM map[string]*model.Task) {
 	switch platform {
+	case constant.TaskPlatformImageGeneration:
+		logger.LogWarn(context.Background(), "skip image generation platform in generic task dispatcher")
 	case constant.TaskPlatformMidjourney:
 		// MJ 轮询由其自身处理，这里预留入口
 	case constant.TaskPlatformSuno:
@@ -162,8 +168,24 @@ func UpdateSunoTasks(ctx context.Context, taskChannelM map[int][]string, taskM m
 	return nil
 }
 
+func filterGenericPollingTaskIDs(taskIds []string, taskM map[string]*model.Task) []string {
+	filtered := make([]string, 0, len(taskIds))
+	for _, taskID := range taskIds {
+		task := taskM[taskID]
+		if task == nil || task.Platform == constant.TaskPlatformImageGeneration {
+			continue
+		}
+		filtered = append(filtered, taskID)
+	}
+	return filtered
+}
+
 func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM map[string]*model.Task) error {
 	logger.LogInfo(ctx, fmt.Sprintf("渠道 #%d 未完成的任务有: %d", channelId, len(taskIds)))
+	if len(taskIds) == 0 {
+		return nil
+	}
+	taskIds = filterGenericPollingTaskIDs(taskIds, taskM)
 	if len(taskIds) == 0 {
 		return nil
 	}
@@ -299,6 +321,14 @@ func UpdateVideoTasks(ctx context.Context, platform constant.TaskPlatform, taskC
 
 func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, channelId int, taskIds []string, taskM map[string]*model.Task) error {
 	logger.LogInfo(ctx, fmt.Sprintf("Channel #%d pending video tasks: %d", channelId, len(taskIds)))
+	if len(taskIds) == 0 {
+		return nil
+	}
+	if platform == constant.TaskPlatformImageGeneration {
+		logger.LogWarn(ctx, "skip image generation tasks in video polling")
+		return nil
+	}
+	taskIds = filterGenericPollingTaskIDs(taskIds, taskM)
 	if len(taskIds) == 0 {
 		return nil
 	}

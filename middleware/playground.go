@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -15,8 +18,8 @@ import (
 
 func PlaygroundTokenAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
-		req := dto.PlayGroundRequest{}
-		if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+		req, err := parsePlaygroundRequest(c)
+		if err != nil {
 			abortWithOpenAiMessage(c, http.StatusBadRequest, err.Error(), types.ErrorCodeInvalidRequest)
 			return
 		}
@@ -36,6 +39,10 @@ func PlaygroundTokenAuth() func(c *gin.Context) {
 			abortWithOpenAiMessage(c, http.StatusForbidden, err.Error(), types.ErrorCodeAccessDenied)
 			return
 		}
+		if err = service.ValidatePlaygroundEndpoint(req, c.Request.URL.Path); err != nil {
+			abortWithOpenAiMessage(c, http.StatusBadRequest, err.Error(), types.ErrorCodeInvalidRequest)
+			return
+		}
 
 		if err := SetupContextForToken(c, token); err != nil {
 			return
@@ -46,4 +53,58 @@ func PlaygroundTokenAuth() func(c *gin.Context) {
 		common.SetContextKey(c, constant.ContextKeyPlaygroundBillTokenQuota, true)
 		c.Next()
 	}
+}
+
+func parsePlaygroundRequest(c *gin.Context) (dto.PlayGroundRequest, error) {
+	req := dto.PlayGroundRequest{}
+	contentType := c.Request.Header.Get("Content-Type")
+
+	if strings.Contains(contentType, gin.MIMEMultipartPOSTForm) {
+		form, err := common.ParseMultipartFormReusable(c)
+		if err != nil {
+			return req, err
+		}
+		fillPlaygroundRequestFromValues(&req, form.Value)
+		return req, nil
+	}
+
+	if strings.Contains(contentType, gin.MIMEPOSTForm) {
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return req, err
+		}
+		requestBody, err := storage.Bytes()
+		if err != nil {
+			return req, err
+		}
+		values, err := url.ParseQuery(string(requestBody))
+		if err != nil {
+			return req, err
+		}
+		fillPlaygroundRequestFromValues(&req, values)
+		if _, err = storage.Seek(0, io.SeekStart); err != nil {
+			return req, err
+		}
+		c.Request.Body = io.NopCloser(storage)
+		return req, nil
+	}
+
+	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
+		return req, err
+	}
+	return req, nil
+}
+
+func fillPlaygroundRequestFromValues(req *dto.PlayGroundRequest, values map[string][]string) {
+	req.Group = firstFormValue(values, "group")
+	req.Model = firstFormValue(values, "model")
+	req.TokenId = common.String2Int(firstFormValue(values, "token_id"))
+}
+
+func firstFormValue(values map[string][]string, key string) string {
+	items := values[key]
+	if len(items) == 0 {
+		return ""
+	}
+	return items[0]
 }

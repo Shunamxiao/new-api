@@ -84,6 +84,7 @@ interface PlaygroundInputProps {
   tokens: PlaygroundTokenOption[]
   tokenValue: number
   onTokenChange: (value: number) => void
+  submitDisabledReason?: string | null
   mode: PlaygroundConfig['mode']
   imageN: number
   imageSize: string
@@ -122,6 +123,7 @@ export function PlaygroundInput({
   tokens,
   tokenValue,
   onTokenChange,
+  submitDisabledReason,
   mode,
   imageN,
   imageSize,
@@ -138,10 +140,16 @@ export function PlaygroundInput({
   const isTokenSelectDisabled = disabled || tokens.length === 0
   const selectedToken = tokens.find((token) => token.id === tokenValue)
   const hasUsableToken = Boolean(selectedToken)
-  const canSubmit = !disabled && hasUsableToken
+  const canSubmit =
+    !disabled && !isModelLoading && hasUsableToken && !submitDisabledReason
 
   const handleSubmit = (message: PromptInputMessage) => {
-    if (!message.text?.trim() || !canSubmit) return
+    if (!message.text?.trim()) return
+    if (submitDisabledReason) {
+      toast.error(submitDisabledReason)
+      return
+    }
+    if (!canSubmit) return
     onSubmit(message.text)
     setText('')
   }
@@ -153,6 +161,10 @@ export function PlaygroundInput({
   }
 
   const handleSuggestionClick = (suggestion: string) => {
+    if (submitDisabledReason) {
+      toast.error(submitDisabledReason)
+      return
+    }
     if (!canSubmit) return
     onSubmit(suggestion)
   }
@@ -422,11 +434,15 @@ export function PlaygroundInput({
         </PromptInputFooter>
       </PromptInput>
 
-      {!hasUsableToken && (
+      {submitDisabledReason ? (
+        <div className='text-muted-foreground px-1 text-xs'>
+          {submitDisabledReason}
+        </div>
+      ) : !hasUsableToken ? (
         <div className='text-muted-foreground px-1 text-xs'>
           {t('Create an API key that covers the selected group and model.')}
         </div>
-      )}
+      ) : null}
 
       <Suggestions>
         {suggestions.map(({ icon: Icon, text, color }) => (

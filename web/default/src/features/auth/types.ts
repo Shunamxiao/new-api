@@ -98,6 +98,7 @@ export interface SystemStatus {
     home_hero_description?: string
     home_contact_config?: string
     wallet_topup_notice?: string
+    keys_usage_guide?: string
     github_oauth?: boolean
     github_client_id?: string
     discord_oauth?: boolean
@@ -148,6 +149,7 @@ export interface SystemStatus {
   home_hero_description?: string
   home_contact_config?: string
   wallet_topup_notice?: string
+  keys_usage_guide?: string
   github_oauth?: boolean
   github_client_id?: string
   discord_oauth?: boolean

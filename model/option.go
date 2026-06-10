@@ -72,6 +72,7 @@ func InitOptionMap() {
 	common.OptionMap["HomeHeroHighlight"] = "海量 AI 模型"
 	common.OptionMap["HomeHeroDescription"] = "通过标准统一的 API 协议接入丰富模型，支撑 AI 应用构建、数字资产管理与未来连接。"
 	common.OptionMap["WalletTopupNotice"] = ""
+	common.OptionMap["KeysUsageGuide"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo

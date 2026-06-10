@@ -2,9 +2,12 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
@@ -32,9 +35,10 @@ type PlaygroundTokenOption struct {
 }
 
 type PlaygroundOptions struct {
-	Groups      []PlaygroundGroupOption `json:"groups"`
-	GroupModels map[string][]string     `json:"group_models"`
-	Tokens      []PlaygroundTokenOption `json:"tokens"`
+	Groups         []PlaygroundGroupOption `json:"groups"`
+	GroupModels    map[string][]string     `json:"group_models"`
+	ModelEndpoints map[string][]string     `json:"model_endpoints"`
+	Tokens         []PlaygroundTokenOption `json:"tokens"`
 }
 
 func BuildPlaygroundOptions(userId int, userGroup string) (*PlaygroundOptions, error) {
@@ -73,9 +77,10 @@ func BuildPlaygroundOptions(userId int, userGroup string) (*PlaygroundOptions, e
 	}
 
 	return &PlaygroundOptions{
-		Groups:      groups,
-		GroupModels: groupModels,
-		Tokens:      tokenOptions,
+		Groups:         groups,
+		GroupModels:    groupModels,
+		ModelEndpoints: buildPlaygroundModelEndpoints(groupModels),
+		Tokens:         tokenOptions,
 	}, nil
 }
 
@@ -128,6 +133,24 @@ func buildPlaygroundGroupModels(groups []PlaygroundGroupOption, userGroup string
 		groupModels[group.Value] = models
 	}
 	return groupModels
+}
+
+func buildPlaygroundModelEndpoints(groupModels map[string][]string) map[string][]string {
+	// 刷新一次定价缓存，确保能力端点来自当前启用渠道。
+	model.GetPricing()
+
+	seen := make(map[string]struct{})
+	modelEndpoints := make(map[string][]string)
+	for _, models := range groupModels {
+		for _, modelName := range models {
+			if _, ok := seen[modelName]; ok {
+				continue
+			}
+			seen[modelName] = struct{}{}
+			modelEndpoints[modelName] = EndpointTypesToStrings(GetPlaygroundModelEndpointTypes(modelName))
+		}
+	}
+	return modelEndpoints
 }
 
 func IsPlaygroundTokenUsable(token *model.Token) bool {
@@ -201,6 +224,88 @@ func ValidatePlaygroundToken(userId int, userGroup string, req dto.PlayGroundReq
 		}
 	}
 	return errors.New("API 密钥不允许使用当前模型")
+}
+
+func GetPlaygroundModelEndpointTypes(modelName string) []constant.EndpointType {
+	if strings.TrimSpace(modelName) == "" {
+		return []constant.EndpointType{}
+	}
+	model.GetPricing()
+	endpoints := model.GetModelSupportEndpointTypes(modelName)
+	if len(endpoints) == 0 {
+		endpoints = common.GetEndpointTypesByChannelType(constant.ChannelTypeUnknown, modelName)
+	}
+	return endpoints
+}
+
+func EndpointTypesToStrings(endpoints []constant.EndpointType) []string {
+	values := make([]string, 0, len(endpoints))
+	seen := make(map[string]struct{}, len(endpoints))
+	for _, endpoint := range endpoints {
+		value := string(endpoint)
+		if value == "" {
+			continue
+		}
+		if _, ok := seen[value]; ok {
+			continue
+		}
+		seen[value] = struct{}{}
+		values = append(values, value)
+	}
+	return values
+}
+
+func ValidatePlaygroundEndpoint(req dto.PlayGroundRequest, path string) error {
+	switch {
+	case strings.HasPrefix(path, "/pg/chat/completions"):
+		if IsPlaygroundChatModel(req.Model) {
+			return nil
+		}
+		return fmt.Errorf("模型 %s 不支持文本游乐场，请选择支持 Chat Completions 的模型", req.Model)
+	case strings.HasPrefix(path, "/pg/images/generations"), strings.HasPrefix(path, "/pg/images/edits"):
+		if IsPlaygroundImageModel(req.Model) {
+			return nil
+		}
+		return fmt.Errorf("模型 %s 不支持图片生成游乐场，请选择支持 Image Generation 的模型", req.Model)
+	default:
+		return nil
+	}
+}
+
+func IsPlaygroundChatModel(modelName string) bool {
+	if isSpecializedNonChatModel(modelName) {
+		return false
+	}
+	endpoints := GetPlaygroundModelEndpointTypes(modelName)
+	for _, endpoint := range endpoints {
+		switch endpoint {
+		case constant.EndpointTypeOpenAI, constant.EndpointTypeAnthropic, constant.EndpointTypeGemini:
+			return true
+		}
+	}
+	return len(endpoints) == 0
+}
+
+func IsPlaygroundImageModel(modelName string) bool {
+	if common.IsImageGenerationModel(modelName) {
+		return true
+	}
+	endpoints := GetPlaygroundModelEndpointTypes(modelName)
+	for _, endpoint := range endpoints {
+		if endpoint == constant.EndpointTypeImageGeneration {
+			return true
+		}
+	}
+	return false
+}
+
+func isSpecializedNonChatModel(modelName string) bool {
+	return common.IsImageGenerationModel(modelName) ||
+		common.IsEmbeddingModel(modelName) ||
+		common.IsRerankModel(modelName) ||
+		common.IsVideoGenerationModel(modelName) ||
+		common.IsAudioModel(modelName) ||
+		common.IsOpenAIResponseOnlyModel(modelName)
 }
 
 func GetPlaygroundModelsForGroup(group string, userGroup string) []string {

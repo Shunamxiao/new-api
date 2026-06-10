@@ -2,9 +2,22 @@ package common
 
 import "github.com/QuantumNous/new-api/constant"
 
-// GetEndpointTypesByChannelType 获取渠道最优先端点类型（所有的渠道都支持 OpenAI 端点）
+// GetEndpointTypesByChannelType 获取渠道优先端点类型，专用模型优先返回专用端点。
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
 	var endpointTypes []constant.EndpointType
+	if IsImageGenerationModel(modelName) {
+		return []constant.EndpointType{constant.EndpointTypeImageGeneration}
+	}
+	if IsRerankModel(modelName) {
+		return []constant.EndpointType{constant.EndpointTypeJinaRerank}
+	}
+	if IsEmbeddingModel(modelName) {
+		return []constant.EndpointType{constant.EndpointTypeEmbeddings}
+	}
+	if IsVideoGenerationModel(modelName) {
+		return []constant.EndpointType{constant.EndpointTypeOpenAIVideo}
+	}
+
 	switch channelType {
 	case constant.ChannelTypeJina:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeJinaRerank}
@@ -28,6 +41,8 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
 	case constant.ChannelTypeXai:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI, constant.EndpointTypeOpenAIResponse}
+	case constant.ChannelTypeCodex:
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIResponse}
 	case constant.ChannelTypeSora:
 		endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIVideo}
 	default:
@@ -36,10 +51,6 @@ func GetEndpointTypesByChannelType(channelType int, modelName string) []constant
 		} else {
 			endpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAI}
 		}
-	}
-	if IsImageGenerationModel(modelName) {
-		// add to first
-		endpointTypes = append([]constant.EndpointType{constant.EndpointTypeImageGeneration}, endpointTypes...)
 	}
 	return endpointTypes
 }

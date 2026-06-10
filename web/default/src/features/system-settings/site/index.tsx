@@ -39,6 +39,7 @@ const defaultSiteSettings: SiteSettings = {
   HomeHeroDescription:
     '通过标准统一的 API 协议接入丰富模型，支撑 AI 应用构建、数字资产管理与未来连接。',
   HomeContactConfig: '',
+  KeysUsageGuide: '',
   ServerAddress: '',
   'legal.user_agreement': '',
   'legal.privacy_policy': '',

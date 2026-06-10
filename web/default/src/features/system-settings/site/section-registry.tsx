@@ -31,6 +31,7 @@ import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { ContactSection } from './contact-section'
+import { KeysUsageGuideSection } from './usage-guide-section'
 
 const SITE_SECTIONS = [
   {
@@ -73,6 +74,13 @@ const SITE_SECTIONS = [
     titleKey: 'Home service links',
     build: (settings: SiteSettings) => (
       <ContactSection defaultValue={settings.HomeContactConfig ?? ''} />
+    ),
+  },
+  {
+    id: 'usage-guide',
+    titleKey: 'Usage Guide',
+    build: (settings: SiteSettings) => (
+      <KeysUsageGuideSection defaultValue={settings.KeysUsageGuide ?? ''} />
     ),
   },
   {

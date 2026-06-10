@@ -32,6 +32,7 @@ const STATUS_RELATED_KEYS = [
   'HomeHeroHighlight',
   'HomeHeroDescription',
   'HomeContactConfig',
+  'KeysUsageGuide',
   'WalletTopupNotice',
   'theme.frontend',
   'theme.preset',
@@ -82,6 +83,7 @@ function getStatusPatchKey(key: string): string | null {
     HomeHeroHighlight: 'home_hero_highlight',
     HomeHeroDescription: 'home_hero_description',
     HomeContactConfig: 'home_contact_config',
+    KeysUsageGuide: 'keys_usage_guide',
     WalletTopupNotice: 'wallet_topup_notice',
   }
 

@@ -83,7 +83,7 @@ import type {
   PlaygroundTokenOption,
 } from '@/features/playground/types'
 
-type ImageTaskStatus = 'running' | 'done' | 'error'
+type ImageTaskStatus = 'submitted' | 'running' | 'done' | 'error'
 type TaskFilterStatus = ImageTaskStatus | 'all'
 
 type GeneratedImage = {
@@ -115,6 +115,7 @@ type ImageTask = {
   mode?: 'generate' | 'edit'
   referenceCount?: number
   error?: string
+  emptyResult?: boolean
 }
 
 type PreviewState = {
@@ -158,13 +159,47 @@ type ImageGenerationResponse = {
   message?: string
 }
 
-const TASK_STORAGE_KEY = 'image_generation_tasks'
+type ImageTaskResponse = {
+  task_id: string
+  status: ImageTaskStatus
+  mode: 'generate' | 'edit'
+  prompt: string
+  model: string
+  group: string
+  size: string
+  quality: string
+  n: number
+  reference_count: number
+  progress: string
+  created_at: number
+  updated_at: number
+  submit_time: number
+  start_time: number
+  finish_time: number
+  elapsed_ms: number
+  images?: Array<{
+    url?: string
+    b64_json?: string
+    revised_prompt?: string
+  }>
+  error?: string
+}
+
+type ImageTaskSubmitResponse = {
+  task_id: string
+  status: ImageTaskStatus
+}
+
+const HIDDEN_TASKS_STORAGE_KEY = 'image_generation_hidden_tasks'
 const MAX_STORED_TASKS = 20
 const MAX_REFERENCE_IMAGES = 4
-const IMAGE_ENDPOINT = '/pg/images/generations'
-const IMAGE_EDIT_ENDPOINT = '/pg/images/edits'
+const PENDING_TASK_MAX_AGE_MS = 30 * 60 * 1000
+const IMAGE_TASKS_ENDPOINT = '/api/image-generation/tasks'
+const IMAGE_GENERATION_TASK_ENDPOINT = '/api/image-generation/tasks/generations'
+const IMAGE_EDIT_TASK_ENDPOINT = '/api/image-generation/tasks/edits'
 
 const FALLBACK_MODEL_OPTIONS = ['gpt-image-2', 'gpt-image-1', 'dall-e-3']
+const PREFERRED_IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'dall-e-3']
 const AUTO_SIZE_VALUE = 'auto'
 const CUSTOM_SIZE_VALUE = 'custom'
 const SIZE_OPTIONS = [AUTO_SIZE_VALUE, '1024x1024', '1024x1536', '1536x1024']
@@ -195,7 +230,19 @@ function getImageModels(options: PlaygroundOptions | undefined) {
       }
     }
   }
-  return Array.from(models).sort()
+  return sortImageModels(Array.from(models))
+}
+
+function sortImageModels(models: string[]) {
+  const preferredIndex = new Map(
+    PREFERRED_IMAGE_MODELS.map((modelName, index) => [modelName, index])
+  )
+  return [...models].sort((left, right) => {
+    const leftIndex = preferredIndex.get(left) ?? Number.MAX_SAFE_INTEGER
+    const rightIndex = preferredIndex.get(right) ?? Number.MAX_SAFE_INTEGER
+    if (leftIndex !== rightIndex) return leftIndex - rightIndex
+    return left.localeCompare(right)
+  })
 }
 
 function getTokensForModel(
@@ -210,6 +257,21 @@ function getTokensForModel(
   )
 }
 
+function getPreferredImageModel(options: PlaygroundOptions | undefined) {
+  const models = getImageModels(options)
+  for (const preferredModel of PREFERRED_IMAGE_MODELS) {
+    if (
+      models.includes(preferredModel) &&
+      getTokensForModel(options, preferredModel).length > 0
+    ) {
+      return preferredModel
+    }
+  }
+  return models.find((modelName) => getTokensForModel(options, modelName).length > 0)
+    ?? models[0]
+    ?? FALLBACK_MODEL_OPTIONS[0]
+}
+
 function getTokenLabel(token: PlaygroundTokenOption) {
   return token.name || token.masked_key || `#${token.id}`
 }
@@ -221,25 +283,27 @@ function createId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function getStoredTasks(): ImageTask[] {
+function getHiddenTaskIds(): string[] {
   try {
-    const raw = window.localStorage.getItem(TASK_STORAGE_KEY)
+    const raw = window.localStorage.getItem(HIDDEN_TASKS_STORAGE_KEY)
     if (!raw) return []
-    const parsed = JSON.parse(raw) as ImageTask[]
-    return Array.isArray(parsed) ? parsed : []
+    const parsed = JSON.parse(raw) as string[]
+    return Array.isArray(parsed)
+      ? parsed.filter((item) => typeof item === 'string')
+      : []
   } catch {
     return []
   }
 }
 
-function storeTasks(tasks: ImageTask[], translate: (key: string) => string) {
+function storeHiddenTaskIds(ids: string[]) {
   try {
     window.localStorage.setItem(
-      TASK_STORAGE_KEY,
-      JSON.stringify(tasks.slice(0, MAX_STORED_TASKS))
+      HIDDEN_TASKS_STORAGE_KEY,
+      JSON.stringify(ids.slice(0, MAX_STORED_TASKS))
     )
   } catch {
-    toast.warning(translate('Image history storage is full'))
+    // 忽略本地隐藏状态写入失败，后端任务状态仍是可信来源。
   }
 }
 
@@ -268,29 +332,6 @@ function normalizeGeneratedImages(
   return images
 }
 
-async function parseImageResponse(
-  res: Response,
-  translate: (key: string) => string
-): Promise<ImageGenerationResponse> {
-  const data = (await res.json().catch(() => null)) as
-    | ImageGenerationResponse
-    | null
-
-  if (!res.ok) {
-    const message =
-      data?.error?.message ||
-      data?.message ||
-      `${res.status} ${res.statusText}`.trim()
-    throw new Error(message)
-  }
-
-  if (!data) {
-    throw new Error(translate('Empty image generation response'))
-  }
-
-  return data
-}
-
 function getErrorMessage(error: unknown, translate: (key: string) => string) {
   const rawMessage = isAxiosError(error)
     ? error.response?.data?.error?.message ||
@@ -311,7 +352,44 @@ function getErrorMessage(error: unknown, translate: (key: string) => string) {
       'Upstream channel timed out. Please try again later or contact the administrator to check the image channel.'
     )
   }
+  if (message === 'Image generation failed') {
+    return translate('Image generation failed')
+  }
+  if (message === 'Empty image generation response') {
+    return translate('Empty image generation response')
+  }
   return message
+}
+
+function getTaskErrorMessage(task: ImageTask, translate: (key: string) => string) {
+  const rawMessage = task.error?.trim()
+  if (!rawMessage) {
+    return task.emptyResult
+      ? translate('The task finished without returning an image. Please retry or contact the administrator to check the image channel.')
+      : translate('The task failed without an upstream error message. Please retry or contact the administrator to check the image channel.')
+  }
+  if (rawMessage === '上游未返回图片结果') {
+    return translate('The upstream finished without returning an image.')
+  }
+  if (rawMessage.startsWith('上游返回了无法解析的图片结果')) {
+    const detail = rawMessage.split('：').slice(1).join('：').trim()
+    return detail
+      ? `${translate('The upstream returned an image result that could not be parsed.')} ${detail}`
+      : translate('The upstream returned an image result that could not be parsed.')
+  }
+  if (
+    rawMessage === '上游渠道超时，请稍后重试或联系管理员检查渠道' ||
+    rawMessage === '上游生成超时，请稍后重试或联系管理员检查渠道'
+  ) {
+    return translate('Upstream channel timed out. Please try again later or contact the administrator to check the image channel.')
+  }
+  if (
+    rawMessage.includes('Failed to get channel info') ||
+    rawMessage.includes('获取渠道信息失败')
+  ) {
+    return translate('Image channel configuration is unavailable. Please retry or contact the administrator to check the image channel.')
+  }
+  return rawMessage
 }
 
 function getOptionsLoadErrorMessage(error: unknown, translate: (key: string) => string) {
@@ -325,13 +403,111 @@ function getOptionsLoadErrorMessage(error: unknown, translate: (key: string) => 
     : translate('Failed to load image generation options')
 }
 
-async function generateImageWithToken(
-  payload: ImageGenerationPayload,
-): Promise<ImageGenerationResponse> {
-  const res = await api.post(IMAGE_ENDPOINT, payload, {
+function getTaskRefreshErrorMessage(error: unknown, translate: (key: string) => string) {
+  const detail = getOptionsLoadErrorMessage(error, translate)
+  return `${translate('Task status is temporarily unavailable. Background generation will continue and the latest result will be restored automatically.')} ${detail}`
+}
+
+async function fetchImageTasks(): Promise<ImageTask[]> {
+  const res = await api.get(IMAGE_TASKS_ENDPOINT, {
+    params: { limit: MAX_STORED_TASKS },
     skipErrorHandler: true,
+    skipBusinessError: true,
   })
-  return res.data
+  const response = res.data as
+    | {
+        success?: boolean
+        message?: string
+        data?: ImageTaskResponse[]
+        error?: { message?: string }
+      }
+    | undefined
+  if (response?.success === false) {
+    throw new Error(
+      response.error?.message ||
+        response.message ||
+        'Failed to refresh image tasks'
+    )
+  }
+  const items = response?.data
+  if (!Array.isArray(items)) return []
+  return items.map(normalizeImageTaskResponse)
+}
+
+async function createImageGenerationTask(
+  payload: ImageGenerationPayload
+): Promise<ImageTaskSubmitResponse> {
+  const res = await api.post(IMAGE_GENERATION_TASK_ENDPOINT, payload, {
+    skipErrorHandler: true,
+    skipBusinessError: true,
+  })
+  const response = res.data as
+    | {
+        success?: boolean
+        message?: string
+        data?: ImageTaskSubmitResponse
+        error?: { message?: string }
+      }
+    | undefined
+  if (response?.success === false) {
+    throw new Error(
+      response.error?.message ||
+        response.message ||
+        'Image generation failed'
+    )
+  }
+  if (!response?.data?.task_id) {
+    throw new Error('Empty image generation response')
+  }
+  return response.data
+}
+
+function normalizeImageTaskResponse(item: ImageTaskResponse): ImageTask {
+  const images = normalizeGeneratedImages({ data: item.images ?? [] })
+  const startedAt = item.start_time || item.submit_time || item.created_at
+  const emptyResult = item.status === 'done' && images.length === 0
+  return {
+    id: item.task_id,
+    prompt: item.prompt,
+    model: item.model,
+    apiKeyName: '',
+    apiKeyGroup: item.group,
+    size: item.size || AUTO_SIZE_VALUE,
+    quality: item.quality || 'auto',
+    n: item.n || 1,
+    status: emptyResult ? 'error' : item.status,
+    createdAt: startedAt ? startedAt * 1000 : Date.now(),
+    elapsed: item.elapsed_ms || undefined,
+    images,
+    mode: item.mode,
+    referenceCount: item.reference_count,
+    error: item.error,
+    emptyResult,
+  }
+}
+
+function createSubmittedTask(
+  input: ImageInput,
+  apiKey: PlaygroundTokenOption,
+  taskId: string,
+  mode: 'generate' | 'edit',
+  referenceCount: number
+): ImageTask {
+  return {
+    id: taskId,
+    prompt: input.prompt,
+    model: input.model,
+    apiKeyName: getTokenLabel(apiKey),
+    apiKeyGroup: input.group,
+    size: input.size || AUTO_SIZE_VALUE,
+    quality: input.quality || 'auto',
+    n: input.n || 1,
+    status: 'submitted',
+    createdAt: Date.now(),
+    images: [],
+    mode,
+    referenceCount,
+  }
 }
 
 function dataUrlToFile(dataUrl: string, filename: string): File {
@@ -365,7 +541,7 @@ async function editImageWithToken(
   input: ImageInput,
   references: ReferenceImage[],
   translate: (key: string) => string
-): Promise<ImageGenerationResponse> {
+): Promise<ImageTaskSubmitResponse> {
   const formData = new FormData()
   formData.append('group', input.group)
   formData.append('model', input.model)
@@ -384,13 +560,31 @@ async function editImageWithToken(
   const headers = getCommonHeaders()
   delete headers['Content-Type']
 
-  const res = await fetch(IMAGE_EDIT_ENDPOINT, {
+  const res = await fetch(IMAGE_EDIT_TASK_ENDPOINT, {
     method: 'POST',
     headers,
     body: formData,
   })
 
-  return parseImageResponse(res, translate)
+  const data = (await res.json().catch(() => null)) as
+    | {
+        success?: boolean
+        data?: ImageTaskSubmitResponse
+        error?: { message?: string }
+        message?: string
+      }
+    | null
+  if (!res.ok || data?.success === false) {
+    throw new Error(
+      data?.error?.message ||
+        data?.message ||
+        `${res.status} ${res.statusText}`.trim()
+    )
+  }
+  if (!data?.data) {
+    throw new Error(translate('Empty image generation response'))
+  }
+  return data.data
 }
 
 function readImageFile(file: File): Promise<ReferenceImage> {
@@ -427,6 +621,10 @@ function formatElapsed(elapsed?: number) {
   return `${mm}:${ss}`
 }
 
+function isActiveTask(task: ImageTask) {
+  return task.status === 'submitted' || task.status === 'running'
+}
+
 function getEndpointLabel(serverAddress: unknown) {
   const base =
     typeof serverAddress === 'string' && serverAddress.trim()
@@ -434,7 +632,7 @@ function getEndpointLabel(serverAddress: unknown) {
       : typeof window !== 'undefined'
         ? window.location.origin
         : ''
-  return `${base}${IMAGE_ENDPOINT}`
+  return `${base}${IMAGE_TASKS_ENDPOINT}`
 }
 
 function getPromptLower(task: ImageTask) {
@@ -454,8 +652,8 @@ export function ImageGeneration() {
   const [quality, setQuality] = useState('auto')
   const [count, setCount] = useState(1)
   const [selectedKeyId, setSelectedKeyId] = useState<number | null>(null)
-  const [tasks, setTasks] = useState<ImageTask[]>(() =>
-    typeof window === 'undefined' ? [] : getStoredTasks()
+  const [hiddenTaskIds, setHiddenTaskIds] = useState<string[]>(() =>
+    typeof window === 'undefined' ? [] : getHiddenTaskIds()
   )
   const [query, setQuery] = useState('')
   const [filterStatus, setFilterStatus] = useState<TaskFilterStatus>('all')
@@ -463,14 +661,34 @@ export function ImageGeneration() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false)
   const [keyGuideOpen, setKeyGuideOpen] = useState(false)
   const [keyGuideAutoOpened, setKeyGuideAutoOpened] = useState(false)
+  const [modelInitialized, setModelInitialized] = useState(false)
   const [mobileParamsOpen, setMobileParamsOpen] = useState(false)
   const [referenceImages, setReferenceImages] = useState<ReferenceImage[]>([])
+  const [pendingSubmittedTasks, setPendingSubmittedTasks] = useState<ImageTask[]>(
+    []
+  )
 
   const optionsQuery = useQuery({
     queryKey: ['image-generation-options'],
     queryFn: getPlaygroundOptions,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
+  })
+
+  const tasksQuery = useQuery({
+    queryKey: ['image-generation-tasks'],
+    queryFn: fetchImageTasks,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
+    refetchInterval: (query) => {
+      const items = [...(query.state.data ?? []), ...pendingSubmittedTasks]
+      const activeTasks = items.filter(isActiveTask)
+      if (activeTasks.length === 0) return false
+      const longestElapsed = Math.max(
+        ...activeTasks.map((task) => Date.now() - task.createdAt)
+      )
+      return longestElapsed > 60_000 ? 5_000 : 2_000
+    },
   })
 
   const modelOptions = useMemo(() => {
@@ -488,24 +706,52 @@ export function ImageGeneration() {
     [availableKeys, selectedKeyId]
   )
 
+  const tasks = useMemo(() => {
+    const serverTasks = tasksQuery.data ?? []
+    const serverTaskIds = new Set(serverTasks.map((task) => task.id))
+    const pendingTasks = pendingSubmittedTasks.filter(
+      (task) =>
+        !serverTaskIds.has(task.id) &&
+        Date.now() - task.createdAt < PENDING_TASK_MAX_AGE_MS
+    )
+    return [...pendingTasks, ...serverTasks].filter(
+      (task) => !hiddenTaskIds.includes(task.id)
+    )
+  }, [hiddenTaskIds, pendingSubmittedTasks, tasksQuery.data])
+
   const filteredTasks = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase()
     return tasks.filter((task) => {
-      if (filterStatus !== 'all' && task.status !== filterStatus) return false
+      if (
+        filterStatus !== 'all' &&
+        (filterStatus === 'running'
+          ? !isActiveTask(task)
+          : task.status !== filterStatus)
+      ) {
+        return false
+      }
       if (!normalizedQuery) return true
       return getPromptLower(task).includes(normalizedQuery)
     })
   }, [filterStatus, query, tasks])
 
   const endpointLabel = getEndpointLabel(status?.server_address)
-  const runningTaskCount = tasks.filter((task) => task.status === 'running').length
+  const runningTaskCount = tasks.filter(isActiveTask).length
   const hasRunningTask = runningTaskCount > 0
   const canSubmit = Boolean(prompt.trim())
 
   useEffect(() => {
-    if (modelOptions.includes(model)) return
-    setModel(modelOptions[0] ?? FALLBACK_MODEL_OPTIONS[0])
-  }, [model, modelOptions])
+    if (!optionsQuery.data) return
+    const preferredModel = getPreferredImageModel(optionsQuery.data)
+    if (!modelInitialized) {
+      setModel(preferredModel)
+      setModelInitialized(true)
+      return
+    }
+    if (!modelOptions.includes(model)) {
+      setModel(preferredModel)
+    }
+  }, [model, modelInitialized, modelOptions, optionsQuery.data])
 
   useEffect(() => {
     const currentTokenValid =
@@ -525,6 +771,15 @@ export function ImageGeneration() {
     if (keyGuideAutoOpened || optionsQuery.isLoading || optionsQuery.isFetching) {
       return
     }
+    if (optionsQuery.data) {
+      const preferredModel = getPreferredImageModel(optionsQuery.data)
+      if (
+        model !== preferredModel &&
+        getTokensForModel(optionsQuery.data, preferredModel).length > 0
+      ) {
+        return
+      }
+    }
     if (optionsQuery.isError || availableKeys.length === 0) {
       setKeyGuideOpen(true)
       setKeyGuideAutoOpened(true)
@@ -532,22 +787,24 @@ export function ImageGeneration() {
   }, [
     availableKeys.length,
     keyGuideAutoOpened,
+    model,
+    optionsQuery.data,
     optionsQuery.isError,
     optionsQuery.isFetching,
     optionsQuery.isLoading,
   ])
 
   useEffect(() => {
-    storeTasks(tasks, t)
-  }, [tasks, t])
+    storeHiddenTaskIds(hiddenTaskIds)
+  }, [hiddenTaskIds])
 
-  const updateTask = (taskId: string, patch: Partial<ImageTask>) => {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === taskId ? { ...task, ...patch } : task
-      )
+  useEffect(() => {
+    const serverTaskIds = new Set((tasksQuery.data ?? []).map((task) => task.id))
+    if (serverTaskIds.size === 0) return
+    setPendingSubmittedTasks((current) =>
+      current.filter((task) => !serverTaskIds.has(task.id))
     )
-  }
+  }, [tasksQuery.data])
 
   const runGeneration = async (
     input: ImageInput,
@@ -565,36 +822,18 @@ export function ImageGeneration() {
       return
     }
 
-    const taskId = createId()
-    const startedAt = Date.now()
     const mode = references.length > 0 ? 'edit' : 'generate'
-    const task: ImageTask = {
-      id: taskId,
-      prompt: normalizedPrompt,
-      model: input.model,
-      apiKeyName: getTokenLabel(apiKey),
-      apiKeyGroup: apiKey.group,
-      size: input.size,
-      quality: input.quality,
-      n: input.n,
-      status: 'running',
-      createdAt: startedAt,
-      images: [],
-      mode,
-      referenceCount: references.length,
-    }
 
-    setTasks((current) => [task, ...current].slice(0, MAX_STORED_TASKS))
-
+    let submitted: ImageTaskSubmitResponse
     try {
-      const response =
+      submitted =
         mode === 'edit'
           ? await editImageWithToken(
               { ...input, prompt: normalizedPrompt },
               references,
               t
             )
-          : await generateImageWithToken({
+          : await createImageGenerationTask({
               group: input.group,
               model: input.model,
               token_id: input.tokenId,
@@ -604,28 +843,44 @@ export function ImageGeneration() {
               quality: input.quality,
               response_format: 'url',
             })
-      const images = normalizeGeneratedImages(response)
-
-      if (images.length === 0) {
-        throw new Error(t('No generated images returned'))
-      }
-
-      updateTask(taskId, {
-        status: 'done',
-        images,
-        elapsed: Date.now() - startedAt,
-      })
-      toast.success(
-        mode === 'edit' ? t('Edited successfully') : t('Generated successfully')
-      )
     } catch (error) {
       const message = getErrorMessage(error, t)
-      updateTask(taskId, {
-        status: 'error',
-        error: message,
-        elapsed: Date.now() - startedAt,
-      })
       toast.error(message)
+      return
+    }
+
+    if (submitted.task_id) {
+      const submittedTask = createSubmittedTask(
+        { ...input, prompt: normalizedPrompt },
+        apiKey,
+        submitted.task_id,
+        mode,
+        references.length
+      )
+      setPendingSubmittedTasks((current) =>
+        [
+          submittedTask,
+          ...current.filter((task) => task.id !== submitted.task_id),
+        ].slice(0, MAX_STORED_TASKS)
+      )
+      setHiddenTaskIds((current) =>
+        current.filter((taskId) => taskId !== submitted.task_id)
+      )
+    }
+
+    toast.success(
+      mode === 'edit'
+        ? t('Image edit task submitted')
+        : t('Image generation task submitted')
+    )
+
+    try {
+      const refreshed = await tasksQuery.refetch()
+      if (refreshed.isError) {
+        toast.warning(getTaskRefreshErrorMessage(refreshed.error, t))
+      }
+    } catch (error) {
+      toast.warning(getTaskRefreshErrorMessage(error, t))
     }
   }
 
@@ -719,7 +974,9 @@ export function ImageGeneration() {
   }
 
   const deleteTask = (taskId: string) => {
-    setTasks((current) => current.filter((task) => task.id !== taskId))
+    setHiddenTaskIds((current) =>
+      current.includes(taskId) ? current : [taskId, ...current]
+    )
   }
 
   const addReferenceImages = (items: ReferenceImage[]) => {
@@ -799,7 +1056,12 @@ export function ImageGeneration() {
   }
 
   const clearTasks = () => {
-    setTasks([])
+    setHiddenTaskIds((current) => [
+      ...new Set([
+        ...current,
+        ...tasks.filter((task) => !isActiveTask(task)).map((task) => task.id),
+      ]),
+    ])
     setClearDialogOpen(false)
     toast.success(t('Image tasks cleared'))
   }
@@ -869,6 +1131,15 @@ export function ImageGeneration() {
           </Alert>
         )}
 
+        {tasksQuery.isError && (
+          <Alert variant='destructive' className='mb-4'>
+            <AlertTitle>{t('Failed to refresh image tasks')}</AlertTitle>
+            <AlertDescription>
+              {getTaskRefreshErrorMessage(tasksQuery.error, t)}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {availableKeys.length === 0 && !optionsQuery.isLoading && (
           <Alert className='mb-4'>
             <KeyRound className='size-4' aria-hidden='true' />
@@ -888,6 +1159,16 @@ export function ImageGeneration() {
               >
                 {t('Create image API key')}
               </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {runningTaskCount > 0 && (
+          <Alert className='mb-4'>
+            <Loader2 className='size-4 animate-spin' aria-hidden='true' />
+            <AlertTitle>{t('Background image generation is running')}</AlertTitle>
+            <AlertDescription>
+              {t('You can refresh this page or come back later. The latest task status will be restored automatically.')}
             </AlertDescription>
           </Alert>
         )}
@@ -1098,11 +1379,20 @@ function TaskCard(props: {
   const { task } = props
   const [now, setNow] = useState(Date.now())
   const cover = task.images[0] ?? null
+  const active = isActiveTask(task)
+  const activeElapsed = now - task.createdAt
+  const taskErrorMessage =
+    task.status === 'error' ? getTaskErrorMessage(task, t) : ''
   const duration =
-    task.status === 'running'
-      ? formatElapsed(now - task.createdAt)
+    active
+      ? formatElapsed(activeElapsed)
       : formatElapsed(task.elapsed)
   const statusConfig = {
+    submitted: {
+      label: t('Submitted'),
+      className: 'border-blue-300 ring-2 ring-blue-500/20',
+      badge: 'bg-blue-500 text-white',
+    },
     running: {
       label: t('Generating...'),
       className: 'border-blue-400 ring-2 ring-blue-500/30',
@@ -1121,7 +1411,7 @@ function TaskCard(props: {
   }[task.status]
 
   useEffect(() => {
-    if (task.status !== 'running') return
+    if (!isActiveTask(task)) return
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [task.status])
@@ -1140,11 +1430,13 @@ function TaskCard(props: {
           disabled={!cover}
           onClick={() => cover && props.onPreview(cover, task)}
         >
-          {task.status === 'running' && (
+          {active && (
             <div className='flex flex-col items-center gap-2'>
               <Loader2 className='size-8 animate-spin text-blue-500' />
               <span className='text-muted-foreground text-xs'>
-                {t('Generating...')}
+                {task.status === 'submitted'
+                  ? t('Waiting for background generation...')
+                  : t('Generating...')}
               </span>
             </div>
           )}
@@ -1183,7 +1475,7 @@ function TaskCard(props: {
                 statusConfig.badge
               )}
             >
-              {task.status === 'running' ? (
+              {active ? (
                 <Loader2 className='size-3 animate-spin' />
               ) : task.status === 'done' ? (
                 <Check className='size-3' />
@@ -1194,9 +1486,16 @@ function TaskCard(props: {
             </span>
           </div>
 
-          {task.status === 'error' && task.error && (
+          {task.status === 'error' && taskErrorMessage && (
             <p className='text-destructive mt-1 line-clamp-2 text-xs'>
-              {task.error}
+              {taskErrorMessage}
+            </p>
+          )}
+          {active && activeElapsed > 60_000 && (
+            <p className='text-muted-foreground mt-1 line-clamp-2 text-xs'>
+              {activeElapsed > 180_000
+                ? t('The upstream may be queued. You can keep this page open or come back later.')
+                : t('Generation is taking longer than usual. The task is still running in the background.')}
             </p>
           )}
 
@@ -1251,7 +1550,7 @@ function TaskCard(props: {
               </IconAction>
               <IconAction
                 label={t('Retry')}
-                disabled={task.status === 'running'}
+                disabled={active}
                 onClick={() => props.onRetry(task)}
               >
                 <RefreshCcw />
@@ -1264,7 +1563,7 @@ function TaskCard(props: {
               </IconAction>
               <IconAction
                 label={t('Delete task')}
-                disabled={task.status === 'running'}
+                disabled={active}
                 onClick={() => props.onDelete(task.id)}
               >
                 <Trash2 />

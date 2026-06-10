@@ -85,8 +85,8 @@ func Distribute() func(c *gin.Context) {
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				// 游乐场请求允许用户在前端显式选择可用分组
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/") {
-					playgroundRequest := &dto.PlayGroundRequest{}
-					err = common.UnmarshalBodyReusable(c, playgroundRequest)
+					playgroundRequest, parseErr := parsePlaygroundRequest(c)
+					err = parseErr
 					if err != nil {
 						abortWithOpenAiMessage(c, http.StatusBadRequest, i18n.T(c, i18n.MsgDistributorInvalidPlayground, map[string]any{"Error": err.Error()}))
 						return
