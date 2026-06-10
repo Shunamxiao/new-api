@@ -22,7 +22,7 @@ import { toast } from 'sonner'
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
 
-// Configuration keys that require status refresh
+// 这些配置会直接影响 /api/status 消费方，需要同步刷新前端状态缓存。
 const STATUS_RELATED_KEYS = [
   'SystemName',
   'Logo',
@@ -38,6 +38,13 @@ const STATUS_RELATED_KEYS = [
   'theme.preset',
   'HeaderNavModules',
   'SidebarModulesAdmin',
+  'console_setting.api_info',
+  'console_setting.api_info_enabled',
+  'console_setting.announcements',
+  'console_setting.announcements_enabled',
+  'console_setting.faq',
+  'console_setting.faq_enabled',
+  'console_setting.uptime_kuma_enabled',
   'Notice',
   'LogConsumeEnabled',
   'QuotaPerUnit',
@@ -76,6 +83,17 @@ function getStatusPatchKey(key: string): string | null {
   if (key === 'Logo') return 'logo'
   if (key === 'Footer') return 'footer_html'
   if (key === 'theme.preset') return 'theme_preset'
+  if (key === 'console_setting.api_info') return 'api_info'
+  if (key === 'console_setting.api_info_enabled') return 'api_info_enabled'
+  if (key === 'console_setting.announcements') return 'announcements'
+  if (key === 'console_setting.announcements_enabled') {
+    return 'announcements_enabled'
+  }
+  if (key === 'console_setting.faq') return 'faq'
+  if (key === 'console_setting.faq_enabled') return 'faq_enabled'
+  if (key === 'console_setting.uptime_kuma_enabled') {
+    return 'uptime_kuma_enabled'
+  }
 
   const heroStatusKeys: Record<string, string> = {
     HomeHeroBadge: 'home_hero_badge',
@@ -91,6 +109,24 @@ function getStatusPatchKey(key: string): string | null {
   if (key === 'HeaderNavModules' || key === 'SidebarModulesAdmin') return key
 
   return null
+}
+
+function getStatusPatchValue(key: string, value: unknown): unknown {
+  if (
+    key === 'console_setting.api_info' ||
+    key === 'console_setting.announcements' ||
+    key === 'console_setting.faq'
+  ) {
+    if (typeof value !== 'string') return value
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }
+
+  return value
 }
 
 function patchStatusData(
@@ -112,9 +148,10 @@ function patchStatusData(
       : null
 
   const setValue = (statusKey: string) => {
-    next[statusKey] = value
+    const statusValue = getStatusPatchValue(key, value)
+    next[statusKey] = statusValue
     if (nestedData) {
-      nestedData[statusKey] = value
+      nestedData[statusKey] = statusValue
       next.data = nestedData
     }
   }
