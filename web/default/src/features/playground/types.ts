@@ -30,6 +30,7 @@ export interface Message {
   key: string
   from: MessageRole
   versions: MessageVersion[]
+  imageData?: ImageResult[]
   sources?: { href: string; title: string }[]
   reasoning?: {
     content: string
@@ -59,6 +60,7 @@ export interface ContentPart {
 export interface ChatCompletionRequest {
   model: string
   group?: string
+  token_id: number
   messages: ChatCompletionMessage[]
   stream: boolean
   temperature?: number
@@ -106,10 +108,36 @@ export interface ChatCompletionResponse {
   }
 }
 
+export type PlaygroundMode = 'chat' | 'image'
+
+export interface ImageGenerationRequest {
+  model: string
+  group?: string
+  token_id: number
+  prompt: string
+  n?: number
+  size?: string
+  quality?: string
+  response_format?: 'url' | 'b64_json'
+}
+
+export interface ImageResult {
+  url?: string
+  b64_json?: string
+  revised_prompt?: string
+}
+
+export interface ImageGenerationResponse {
+  created?: number
+  data: ImageResult[]
+}
+
 // Configuration types
 export interface PlaygroundConfig {
+  mode: PlaygroundMode
   model: string
   group: string
+  token_id: number
   temperature: number
   top_p: number
   max_tokens: number
@@ -117,6 +145,10 @@ export interface PlaygroundConfig {
   presence_penalty: number
   seed: number | null
   stream: boolean
+  image_n: number
+  image_size: string
+  image_quality: string
+  image_response_format: 'url' | 'b64_json'
 }
 
 export interface ParameterEnabled {
@@ -137,6 +169,25 @@ export interface ModelOption {
 export interface GroupOption {
   label: string
   value: string
-  ratio: number
+  ratio?: number
   desc?: string
+}
+
+export interface PlaygroundTokenOption {
+  id: number
+  name: string
+  masked_key: string
+  group: string
+  status: number
+  remain_quota: number
+  unlimited_quota: boolean
+  model_limits_enabled: boolean
+  model_limits: string
+  allowed_models: string[]
+}
+
+export interface PlaygroundOptions {
+  groups: GroupOption[]
+  group_models: Record<string, string[]>
+  tokens: PlaygroundTokenOption[]
 }

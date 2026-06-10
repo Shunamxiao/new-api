@@ -16,14 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { toast } from 'sonner'
-import { sendChatCompletion } from '../api'
-import { MESSAGE_STATUS, ERROR_MESSAGES } from '../constants'
+import { sendChatCompletion, sendImageGeneration } from '../api'
+import { MESSAGE_ROLES, MESSAGE_STATUS, ERROR_MESSAGES } from '../constants'
 import {
   buildChatCompletionPayload,
+  buildImageGenerationPayload,
   updateAssistantMessageWithError,
   updateLastAssistantMessage,
+  updateLastAssistantMessageWithImages,
   processStreamingContent,
   finalizeMessage,
 } from '../lib'
@@ -45,6 +47,7 @@ export function useChatHandler({
   onMessageUpdate,
 }: UseChatHandlerOptions) {
   const { sendStreamRequest, stopStream, isStreaming } = useStreamRequest()
+  const [isRequesting, setIsRequesting] = useState(false)
 
   // Handle stream update
   const handleStreamUpdate = useCallback(
@@ -135,6 +138,7 @@ export function useChatHandler({
       )
 
       try {
+        setIsRequesting(true)
         const response = await sendChatCompletion(payload)
         const choice = response.choices?.[0]
         if (!choice) return
@@ -169,21 +173,90 @@ export function useChatHandler({
             ERROR_MESSAGES.API_REQUEST_ERROR,
           err?.response?.data?.error?.code || undefined
         )
+      } finally {
+        setIsRequesting(false)
       }
     },
     [config, parameterEnabled, onMessageUpdate, handleStreamError]
   )
 
-  // Send chat request (stream or non-stream based on config)
+  // 发送图片生成请求
+  const sendImageGenerationRequest = useCallback(
+    async (prompt: string) => {
+      const payload = buildImageGenerationPayload(prompt, config)
+
+      try {
+        setIsRequesting(true)
+        const response = await sendImageGeneration(payload)
+        const imageData = Array.isArray(response.data) ? response.data : []
+
+        if (!imageData.length) {
+          handleStreamError(ERROR_MESSAGES.API_REQUEST_ERROR)
+          return
+        }
+
+        onMessageUpdate((prev) =>
+          updateLastAssistantMessageWithImages(prev, imageData)
+        )
+      } catch (error: unknown) {
+        const err = error as {
+          response?: {
+            data?: {
+              message?: string
+              error?: { message?: string; code?: string }
+            }
+          }
+          message?: string
+        }
+        handleStreamError(
+          err?.response?.data?.message ||
+            err?.response?.data?.error?.message ||
+            err?.message ||
+            ERROR_MESSAGES.API_REQUEST_ERROR,
+          err?.response?.data?.error?.code || undefined
+        )
+      } finally {
+        setIsRequesting(false)
+      }
+    },
+    [config, handleStreamError, onMessageUpdate]
+  )
+
+  // 根据当前模式发送聊天或图片生成请求
   const sendChat = useCallback(
     (messages: Message[]) => {
+      if (config.token_id <= 0) {
+        handleStreamError(ERROR_MESSAGES.SELECT_API_KEY)
+        return
+      }
+
+      if (config.mode === 'image') {
+        const prompt =
+          messages
+            .filter((message) => message.from === MESSAGE_ROLES.USER)
+            .at(-1)
+            ?.versions?.[0]?.content?.trim() ?? ''
+        if (prompt) {
+          void sendImageGenerationRequest(prompt)
+        }
+        return
+      }
+
       if (config.stream) {
         sendStreamingChat(messages)
       } else {
         sendNonStreamingChat(messages)
       }
     },
-    [config.stream, sendStreamingChat, sendNonStreamingChat]
+    [
+      config.mode,
+      config.stream,
+      config.token_id,
+      handleStreamError,
+      sendImageGenerationRequest,
+      sendStreamingChat,
+      sendNonStreamingChat,
+    ]
   )
 
   // Stop generation
@@ -202,6 +275,6 @@ export function useChatHandler({
   return {
     sendChat,
     stopGeneration,
-    isGenerating: isStreaming,
+    isGenerating: isStreaming || isRequesting,
   }
 }

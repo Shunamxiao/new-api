@@ -65,6 +65,11 @@ export function SidebarModulesCard() {
           description: t('AI model testing environment'),
         },
         {
+          key: 'imageGeneration',
+          title: t('Image Generation'),
+          description: t('Quick OpenAI-compatible image generation'),
+        },
+        {
           key: 'chat',
           title: t('Chat'),
           description: t('Chat session management'),

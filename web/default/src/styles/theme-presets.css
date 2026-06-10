@@ -2896,8 +2896,9 @@ For commercial licensing, please contact support@quantumnous.com
   filter: sepia(0.32) hue-rotate(72deg) saturate(0.7);
 }
 
-[data-theme-preset='animal-island'] [class*='blur-3xl'],
-[data-theme-preset='animal-island'] [class*='blur-2xl'] {
+/* 仅处理装饰性模糊层，避免误伤 backdrop-blur-* 交互浮层。 */
+[data-theme-preset='animal-island'] [class~='blur-3xl'],
+[data-theme-preset='animal-island'] [class~='blur-2xl'] {
   opacity: 0.28;
   filter: blur(36px) sepia(0.2) hue-rotate(80deg) saturate(0.75);
 }

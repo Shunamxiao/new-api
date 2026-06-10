@@ -40,8 +40,7 @@ func GetAllEnableAbilityWithChannels() ([]AbilityWithChannel, error) {
 
 func GetGroupEnabledModels(group string) []string {
 	var models []string
-	// Find distinct models
-	DB.Table("abilities").Where(commonGroupCol+" = ? and enabled = ?", group, true).Distinct("model").Pluck("model", &models)
+	DB.Model(&Ability{}).Where(&Ability{Group: group, Enabled: true}).Distinct("model").Pluck("model", &models)
 	return models
 }
 

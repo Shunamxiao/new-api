@@ -35,8 +35,8 @@ export const MESSAGE_STATUS = {
 // API endpoints
 export const API_ENDPOINTS = {
   CHAT_COMPLETIONS: '/pg/chat/completions',
-  USER_MODELS: '/api/user/models',
-  USER_GROUPS: '/api/user/self/groups',
+  IMAGE_GENERATIONS: '/pg/images/generations',
+  OPTIONS: '/api/user/playground/options',
 } as const
 
 // Default group — uses 'default' as the safe fallback; auto-group is
@@ -45,8 +45,10 @@ export const DEFAULT_GROUP = 'default' as const
 
 // Default configuration
 export const DEFAULT_CONFIG: PlaygroundConfig = {
+  mode: 'chat',
   model: 'gpt-4o',
   group: DEFAULT_GROUP,
+  token_id: 0,
   temperature: 0.7,
   top_p: 1,
   max_tokens: 4096,
@@ -54,6 +56,10 @@ export const DEFAULT_CONFIG: PlaygroundConfig = {
   presence_penalty: 0,
   seed: null,
   stream: true,
+  image_n: 1,
+  image_size: '1024x1024',
+  image_quality: 'auto',
+  image_response_format: 'url',
 }
 
 export const DEFAULT_PARAMETER_ENABLED: ParameterEnabled = {
@@ -80,6 +86,7 @@ export const ERROR_MESSAGES = {
   STREAM_START_ERROR: 'Error establishing connection',
   CONNECTION_CLOSED: 'Connection closed',
   INTERRUPTED: 'Generation was interrupted',
+  SELECT_API_KEY: 'Please select an API key',
 } as const
 
 // Message action button styles

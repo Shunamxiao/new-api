@@ -21,8 +21,11 @@ import { API_ENDPOINTS } from './constants'
 import type {
   ChatCompletionRequest,
   ChatCompletionResponse,
-  ModelOption,
   GroupOption,
+  ImageGenerationRequest,
+  ImageGenerationResponse,
+  PlaygroundOptions,
+  PlaygroundTokenOption,
 } from './types'
 
 /**
@@ -38,40 +41,43 @@ export async function sendChatCompletion(
 }
 
 /**
- * Get user available models
+ * 发送图片生成请求
  */
-export async function getUserModels(): Promise<ModelOption[]> {
-  const res = await api.get(API_ENDPOINTS.USER_MODELS)
-  const { data } = res
-
-  if (!data.success || !Array.isArray(data.data)) {
-    return []
-  }
-
-  return data.data.map((model: string) => ({
-    label: model,
-    value: model,
-  }))
+export async function sendImageGeneration(
+  payload: ImageGenerationRequest
+): Promise<ImageGenerationResponse> {
+  const res = await api.post(API_ENDPOINTS.IMAGE_GENERATIONS, payload, {
+    skipErrorHandler: true,
+  } as Record<string, unknown>)
+  return res.data
 }
 
-/**
- * Get user groups
- */
-export async function getUserGroups(): Promise<GroupOption[]> {
-  const res = await api.get(API_ENDPOINTS.USER_GROUPS)
+export async function getPlaygroundOptions(): Promise<PlaygroundOptions> {
+  const res = await api.get(API_ENDPOINTS.OPTIONS, {
+    skipErrorHandler: true,
+  })
   const { data } = res
 
   if (!data.success || !data.data) {
-    return []
+    return {
+      groups: [],
+      group_models: {},
+      tokens: [],
+    }
   }
 
-  const groupData = data.data as Record<string, { desc: string; ratio: number }>
+  const raw = data.data as {
+    groups?: Array<GroupOption & { ratio?: number | string }>
+    group_models?: Record<string, string[]>
+    tokens?: PlaygroundTokenOption[]
+  }
 
-  // label is for button display (name only); desc is for dropdown content
-  return Object.entries(groupData).map(([group, info]) => ({
-    label: group,
-    value: group,
-    ratio: info.ratio,
-    desc: info.desc,
-  }))
+  return {
+    groups: (raw.groups ?? []).map((group) => ({
+      ...group,
+      ratio: typeof group.ratio === 'number' ? group.ratio : undefined,
+    })),
+    group_models: raw.group_models ?? {},
+    tokens: raw.tokens ?? [],
+  }
 }

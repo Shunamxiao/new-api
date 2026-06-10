@@ -62,9 +62,15 @@ func SetRelayRouter(router *gin.Engine) {
 	playgroundRouter := router.Group("/pg")
 	playgroundRouter.Use(middleware.RouteTag("relay"))
 	playgroundRouter.Use(middleware.SystemPerformanceCheck())
-	playgroundRouter.Use(middleware.UserAuth(), middleware.Distribute())
+	playgroundRouter.Use(middleware.UserAuth(), middleware.PlaygroundTokenAuth(), middleware.Distribute())
 	{
 		playgroundRouter.POST("/chat/completions", controller.Playground)
+		playgroundRouter.POST("/images/generations", func(c *gin.Context) {
+			controller.PlaygroundRelay(c, types.RelayFormatOpenAIImage)
+		})
+		playgroundRouter.POST("/images/edits", func(c *gin.Context) {
+			controller.PlaygroundRelay(c, types.RelayFormatOpenAIImage)
+		})
 	}
 	relayV1Router := router.Group("/v1")
 	relayV1Router.Use(middleware.RouteTag("relay"))

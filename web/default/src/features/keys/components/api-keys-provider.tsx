@@ -17,12 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import React, { useState, useCallback, useRef, useEffect } from 'react'
+import { getRouteApi } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import useDialogState from '@/hooks/use-dialog'
 import { fetchTokenKey, fetchTokenKeysBatch } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import { type ApiKey, type ApiKeysDialogType } from '../types'
+
+const route = getRouteApi('/_authenticated/keys/')
 
 type ApiKeysContextType = {
   open: ApiKeysDialogType | null
@@ -39,12 +42,14 @@ type ApiKeysContextType = {
   loadingKeys: Record<number, boolean>
   copiedKeyId: number | null
   markKeyCopied: (id: number) => void
+  prefillModels: string[]
 }
 
 const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
 
 export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   const { t } = useTranslation()
+  const search = route.useSearch()
   const [open, setOpen] = useDialogState<ApiKeysDialogType>(null)
   const [currentRow, setCurrentRow] = useState<ApiKey | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
@@ -60,6 +65,21 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     return () => clearTimeout(copiedTimerRef.current)
   }, [])
+
+  const prefillModels = React.useMemo(
+    () =>
+      (search.models || '')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean),
+    [search.models]
+  )
+
+  useEffect(() => {
+    if (search.open === 'create') {
+      setOpen('create')
+    }
+  }, [search.open, setOpen])
 
   const markKeyCopied = useCallback((id: number) => {
     setCopiedKeyId(id)
@@ -169,6 +189,7 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
         loadingKeys,
         copiedKeyId,
         markKeyCopied,
+        prefillModels,
       }}
     >
       {children}

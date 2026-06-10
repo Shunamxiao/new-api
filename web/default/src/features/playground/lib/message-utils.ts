@@ -23,6 +23,7 @@ import type {
   MessageVersion,
   ChatCompletionMessage,
   ContentPart,
+  ImageResult,
 } from '../types'
 
 /**
@@ -231,6 +232,30 @@ export function updateAssistantMessageWithError(
       status: MESSAGE_STATUS.ERROR,
       isReasoningStreaming: false,
       errorCode: errorCode || null,
+    }
+  })
+}
+
+/**
+ * 用生成图片更新最后一条助手消息
+ */
+export function updateLastAssistantMessageWithImages(
+  messages: Message[],
+  imageData: ImageResult[]
+): Message[] {
+  return updateLastAssistantMessage(messages, (message) => {
+    const revisedPrompts = imageData
+      .map((item) => item.revised_prompt)
+      .filter((value): value is string => Boolean(value?.trim()))
+
+    const content = revisedPrompts.length > 0 ? revisedPrompts.join('\n\n') : ''
+
+    const updatedMessage = updateCurrentVersionContent(message, content)
+    return {
+      ...updatedMessage,
+      imageData,
+      status: MESSAGE_STATUS.COMPLETE,
+      isReasoningStreaming: false,
     }
   })
 }

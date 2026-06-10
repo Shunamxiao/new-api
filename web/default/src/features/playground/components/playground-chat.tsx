@@ -17,9 +17,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import {
+  Copy,
+  Download,
+  ExternalLink,
+  Maximize2,
+  X,
+  type LucideIcon,
+} from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   Branch,
   BranchMessages,
@@ -55,6 +76,131 @@ import type { Message as MessageType } from '../types'
 import { MessageActions } from './message-actions'
 import { MessageError } from './message-error'
 
+function getImageResultSrc(image: { url?: string; b64_json?: string }) {
+  if (image.url) return image.url
+  if (!image.b64_json) return ''
+  if (image.b64_json.startsWith('data:')) return image.b64_json
+  return `data:image/png;base64,${image.b64_json}`
+}
+
+function downloadImage(src: string, filename: string) {
+  const link = document.createElement('a')
+  link.href = src
+  link.download = filename
+  link.rel = 'noopener noreferrer'
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+}
+
+type PreviewImage = {
+  src: string
+  alt: string
+}
+
+function PreviewActionButton(props: {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+}) {
+  const { icon: Icon, label, onClick } = props
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            type='button'
+            variant='ghost'
+            size='icon'
+            className='text-white hover:bg-white/15 hover:text-white'
+            aria-label={label}
+            onClick={onClick}
+          />
+        }
+      >
+        <Icon className='size-4' aria-hidden='true' />
+      </TooltipTrigger>
+      <TooltipContent>
+        <p>{label}</p>
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+function ImagePreviewDialog(props: {
+  image: PreviewImage | null
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const { image, onOpenChange } = props
+
+  const copyImage = async () => {
+    if (!image) return
+    try {
+      await navigator.clipboard.writeText(image.src)
+      toast.success(t('Image copied to clipboard'))
+    } catch {
+      toast.error(t('Failed to copy to clipboard'))
+    }
+  }
+
+  const downloadPreview = () => {
+    if (!image) return
+    downloadImage(image.src, 'playground-image.png')
+  }
+
+  const openPreview = () => {
+    if (!image) return
+    window.open(image.src, '_blank', 'noopener,noreferrer')
+  }
+
+  return (
+    <Dialog open={Boolean(image)} onOpenChange={onOpenChange}>
+      <DialogContent
+        showCloseButton={false}
+        className='h-[100dvh] max-h-[100dvh] w-[100dvw] max-w-[100dvw] gap-0 overflow-hidden rounded-none border-0 bg-black/95 p-0 ring-0 sm:max-w-[100dvw]'
+      >
+        <DialogTitle className='sr-only'>{t('Image preview')}</DialogTitle>
+        <TooltipProvider delay={300}>
+          <div className='absolute top-3 right-3 z-10 flex items-center gap-1 rounded-lg bg-black/60 p-1 backdrop-blur'>
+            <PreviewActionButton
+              icon={Copy}
+              label={t('Copy image')}
+              onClick={copyImage}
+            />
+            <PreviewActionButton
+              icon={Download}
+              label={t('Download image')}
+              onClick={downloadPreview}
+            />
+            <PreviewActionButton
+              icon={ExternalLink}
+              label={t('Open in new tab')}
+              onClick={openPreview}
+            />
+            <PreviewActionButton
+              icon={X}
+              label={t('Close')}
+              onClick={() => onOpenChange(false)}
+            />
+          </div>
+        </TooltipProvider>
+
+        <div className='flex h-full w-full items-center justify-center p-3 pt-16 sm:p-6 sm:pt-16'>
+          {image && (
+            <img
+              src={image.src}
+              alt={image.alt}
+              className='max-h-full max-w-full object-contain'
+            />
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 interface PlaygroundChatProps {
   messages: MessageType[]
   onCopyMessage?: (message: MessageType) => void
@@ -80,8 +226,10 @@ export function PlaygroundChat({
   onCancelEdit,
   onSaveEditAndSubmit,
 }: PlaygroundChatProps) {
+  const { t } = useTranslation()
   const [editText, setEditText] = useState('')
   const [originalText, setOriginalText] = useState('')
+  const [previewImage, setPreviewImage] = useState<PreviewImage | null>(null)
 
   useEffect(() => {
     if (!editingKey) return
@@ -137,7 +285,7 @@ export function PlaygroundChat({
                                   }
                                   disabled={isEmpty || !isChanged}
                                 >
-                                  Save & Submit
+                                  {t('Save & Submit')}
                                 </Button>
                               )}
                               <Button
@@ -145,14 +293,14 @@ export function PlaygroundChat({
                                 onClick={() => onSaveEdit?.(editText)}
                                 disabled={isEmpty || !isChanged}
                               >
-                                Save
+                                {t('Save')}
                               </Button>
                               <Button
                                 size='sm'
                                 variant='outline'
                                 onClick={() => onCancelEdit?.(false)}
                               >
-                                Cancel
+                                {t('Cancel')}
                               </Button>
                             </div>
                           </div>
@@ -174,6 +322,8 @@ export function PlaygroundChat({
                                 (message.from === MESSAGE_ROLES.USER ||
                                   !message.isReasoningStreaming) &&
                                 !!version.content
+                              const hasImageData =
+                                isAssistant && !!message.imageData?.length
 
                               // Extract visible content (remove <think> tags for assistant messages)
                               const displayContent = isAssistant
@@ -233,7 +383,7 @@ export function PlaygroundChat({
                                     <div className='flex items-center gap-2 py-2'>
                                       <Loader />
                                       <Shimmer className='text-sm' duration={1}>
-                                        Responding...
+                                        {t('Responding...')}
                                       </Shimmer>
                                     </div>
                                   )}
@@ -248,7 +398,7 @@ export function PlaygroundChat({
                                       {actions}
                                     </>
                                   ) : (
-                                    showMessageContent && (
+                                    (showMessageContent || hasImageData) && (
                                       <>
                                         <MessageContent
                                           variant='flat'
@@ -256,7 +406,56 @@ export function PlaygroundChat({
                                             getMessageContentStyles()
                                           )}
                                         >
-                                          <Response>{displayContent}</Response>
+                                          {showMessageContent && (
+                                            <Response>{displayContent}</Response>
+                                          )}
+                                          {hasImageData && (
+                                            <div className='grid gap-3 sm:grid-cols-2'>
+                                              {message.imageData!.map(
+                                                (image, imageIndex) => {
+                                                  const src =
+                                                    getImageResultSrc(image)
+                                                  if (!src) return null
+                                                  const alt = t(
+                                                    'Generated image {{index}}',
+                                                    { index: imageIndex + 1 }
+                                                  )
+                                                  return (
+                                                    <button
+                                                      type='button'
+                                                      key={`${message.key}-image-${imageIndex}`}
+                                                      className='bg-muted group/image relative block overflow-hidden rounded-lg border text-left'
+                                                      aria-label={t(
+                                                        'Preview image'
+                                                      )}
+                                                      onClick={() =>
+                                                        setPreviewImage({
+                                                          src,
+                                                          alt,
+                                                        })
+                                                      }
+                                                    >
+                                                      <img
+                                                        src={src}
+                                                        alt={alt}
+                                                        className='aspect-square h-auto w-full object-cover'
+                                                        loading='lazy'
+                                                      />
+                                                      <span className='absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition group-hover/image:bg-black/35 group-hover/image:opacity-100'>
+                                                        <span className='inline-flex items-center gap-1.5 rounded-md bg-black/70 px-2 py-1 text-xs font-medium text-white'>
+                                                          <Maximize2
+                                                            className='size-3.5'
+                                                            aria-hidden='true'
+                                                          />
+                                                          {t('Preview')}
+                                                        </span>
+                                                      </span>
+                                                    </button>
+                                                  )
+                                                }
+                                              )}
+                                            </div>
+                                          )}
                                         </MessageContent>
                                         {actions}
                                       </>
@@ -286,6 +485,12 @@ export function PlaygroundChat({
         </div>
       </ConversationContent>
       <ConversationScrollButton />
+      <ImagePreviewDialog
+        image={previewImage}
+        onOpenChange={(open) => {
+          if (!open) setPreviewImage(null)
+        }}
+      />
     </Conversation>
   )
 }
