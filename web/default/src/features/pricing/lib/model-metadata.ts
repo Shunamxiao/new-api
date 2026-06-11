@@ -42,7 +42,7 @@ const TEXT_INPUT_ENDPOINTS = new Set([
   'jina-rerank',
 ])
 
-const IMAGE_OUTPUT_ENDPOINTS = new Set(['image-generation'])
+const IMAGE_OUTPUT_ENDPOINTS = new Set(['image-generation', 'image-edit'])
 const VIDEO_OUTPUT_ENDPOINTS = new Set(['openai-video'])
 const EMBEDDING_ENDPOINTS = new Set(['embeddings', 'jina-rerank'])
 
@@ -215,12 +215,17 @@ function inferCapabilities(
 ): ModelCapability[] {
   const set = new Set<ModelCapability>()
 
-  if (outputs.includes('text') && !endpoints.includes('image-generation')) {
+  if (
+    outputs.includes('text') &&
+    !endpoints.includes('image-generation') &&
+    !endpoints.includes('image-edit')
+  ) {
     set.add('streaming')
     set.add('system_prompt')
   }
   if (
     !endpoints.includes('image-generation') &&
+    !endpoints.includes('image-edit') &&
     !endpoints.includes('embeddings') &&
     !endpoints.includes('jina-rerank')
   ) {
@@ -259,6 +264,7 @@ function inferContextAndOutputs(
   }
   if (
     endpoints.includes('image-generation') ||
+    endpoints.includes('image-edit') ||
     endpoints.includes('openai-video')
   ) {
     return { context: 4_096, maxOutput: 0 }

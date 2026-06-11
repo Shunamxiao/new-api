@@ -3,6 +3,7 @@ package controller
 import (
 	"bytes"
 	"fmt"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -66,8 +67,19 @@ func TestBuildImageTextSubmitContextDefaultsResponseFormat(t *testing.T) {
 
 	payload := imageGenerationJSONPayload{}
 	require.NoError(t, common.Unmarshal(submitCtx.Body, &payload))
-	require.Equal(t, "url", payload.ResponseFormat)
+	require.Empty(t, payload.ResponseFormat)
 	require.Equal(t, 1, payload.N)
+}
+
+func TestBuildImageTextSubmitContextKeepsDalleURLResponseFormat(t *testing.T) {
+	body := []byte(`{"group":"image","model":"dall-e-3","token_id":7,"prompt":"draw a city","size":"1024x1024","quality":"standard"}`)
+
+	submitCtx, err := buildImageTextSubmitContext(body, "application/json")
+
+	require.NoError(t, err)
+	payload := imageGenerationJSONPayload{}
+	require.NoError(t, common.Unmarshal(submitCtx.Body, &payload))
+	require.Equal(t, "url", payload.ResponseFormat)
 }
 
 func TestBuildImageEditSubmitContextParsesMultipart(t *testing.T) {
@@ -104,6 +116,43 @@ func TestBuildImageEditSubmitContextParsesMultipart(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "gpt-image-2", form.Value["model"][0])
 	require.Len(t, form.File["image"], 1)
+}
+
+func TestBuildImageEditSubmitContextRemovesGPTURLResponseFormat(t *testing.T) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("group", "image"))
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("token_id", "12"))
+	require.NoError(t, writer.WriteField("prompt", "make it cinematic"))
+	require.NoError(t, writer.WriteField("size", "auto"))
+	require.NoError(t, writer.WriteField("quality", "auto"))
+	require.NoError(t, writer.WriteField("response_format", "url"))
+	for _, name := range []string{"reference-a.png", "reference-b.png"} {
+		fileWriter, err := writer.CreateFormFile("image", name)
+		require.NoError(t, err)
+		_, err = fileWriter.Write([]byte("fake image bytes"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	request := httptest.NewRequest(http.MethodPost, "/api/image-generation/tasks/edits", &body)
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = request
+
+	submitCtx, err := buildImageGenerationSubmitContext(c, dto.ImageGenerationActionEdit)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, submitCtx.Input.ReferenceCount)
+	_, params, err := mime.ParseMediaType(submitCtx.ContentType)
+	require.NoError(t, err)
+	reader := multipart.NewReader(bytes.NewReader(submitCtx.Body), params["boundary"])
+	form, err := reader.ReadForm(32 << 20)
+	require.NoError(t, err)
+	require.Empty(t, form.Value["response_format"])
+	require.Len(t, form.File["image"], 2)
 }
 
 func TestImageGenerationTaskToDtoReturnsStoredImages(t *testing.T) {

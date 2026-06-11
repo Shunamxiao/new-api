@@ -141,7 +141,7 @@ type ImageGenerationPayload = {
   n: number
   size: string
   quality: string
-  response_format: 'url' | 'b64_json'
+  response_format?: 'url' | 'b64_json'
 }
 
 type ImageGenerationResponse = {
@@ -199,7 +199,11 @@ const IMAGE_GENERATION_TASK_ENDPOINT = '/api/image-generation/tasks/generations'
 const IMAGE_EDIT_TASK_ENDPOINT = '/api/image-generation/tasks/edits'
 
 const FALLBACK_MODEL_OPTIONS = ['gpt-image-2', 'gpt-image-1', 'dall-e-3']
+const FALLBACK_EDIT_MODEL_OPTIONS = ['gpt-image-2', 'gpt-image-1', 'dall-e-2']
 const PREFERRED_IMAGE_MODELS = ['gpt-image-2', 'gpt-image-1', 'dall-e-3']
+const PREFERRED_IMAGE_EDIT_MODELS = ['gpt-image-2', 'gpt-image-1', 'dall-e-2']
+const IMAGE_GENERATION_ENDPOINT = 'image-generation'
+const IMAGE_EDIT_ENDPOINT = 'image-edit'
 const AUTO_SIZE_VALUE = 'auto'
 const CUSTOM_SIZE_VALUE = 'custom'
 const SIZE_OPTIONS = [AUTO_SIZE_VALUE, '1024x1024', '1024x1536', '1536x1024']
@@ -221,21 +225,54 @@ function isImageGenerationModel(modelName: string) {
   )
 }
 
-function getImageModels(options: PlaygroundOptions | undefined) {
+function isImageEditModel(modelName: string) {
+  const normalized = modelName.toLowerCase()
+  return normalized.includes('gpt-image-') || normalized.includes('dall-e-2')
+}
+
+function shouldUseImageURLResponseFormat(modelName: string) {
+  return modelName.toLowerCase().includes('dall-e')
+}
+
+function getImageResponseFormat(modelName: string): 'url' | undefined {
+  return shouldUseImageURLResponseFormat(modelName) ? 'url' : undefined
+}
+
+function supportsImageEndpoint(
+  options: PlaygroundOptions | undefined,
+  modelName: string,
+  endpoint: typeof IMAGE_GENERATION_ENDPOINT | typeof IMAGE_EDIT_ENDPOINT
+) {
+  const endpoints = options?.model_endpoints?.[modelName]
+  if (Array.isArray(endpoints) && endpoints.length > 0) {
+    return endpoints.includes(endpoint)
+  }
+  return endpoint === IMAGE_EDIT_ENDPOINT
+    ? isImageEditModel(modelName)
+    : isImageGenerationModel(modelName)
+}
+
+function getImageModels(
+  options: PlaygroundOptions | undefined,
+  endpoint: typeof IMAGE_GENERATION_ENDPOINT | typeof IMAGE_EDIT_ENDPOINT
+) {
   const models = new Set<string>()
   for (const groupModels of Object.values(options?.group_models ?? {})) {
     for (const modelName of groupModels) {
-      if (isImageGenerationModel(modelName)) {
+      if (supportsImageEndpoint(options, modelName, endpoint)) {
         models.add(modelName)
       }
     }
   }
-  return sortImageModels(Array.from(models))
+  return sortImageModels(
+    Array.from(models),
+    endpoint === IMAGE_EDIT_ENDPOINT ? PREFERRED_IMAGE_EDIT_MODELS : PREFERRED_IMAGE_MODELS
+  )
 }
 
-function sortImageModels(models: string[]) {
+function sortImageModels(models: string[], preferredModels: string[]) {
   const preferredIndex = new Map(
-    PREFERRED_IMAGE_MODELS.map((modelName, index) => [modelName, index])
+    preferredModels.map((modelName, index) => [modelName, index])
   )
   return [...models].sort((left, right) => {
     const leftIndex = preferredIndex.get(left) ?? Number.MAX_SAFE_INTEGER
@@ -257,9 +294,18 @@ function getTokensForModel(
   )
 }
 
-function getPreferredImageModel(options: PlaygroundOptions | undefined) {
-  const models = getImageModels(options)
-  for (const preferredModel of PREFERRED_IMAGE_MODELS) {
+function getPreferredImageModel(
+  options: PlaygroundOptions | undefined,
+  endpoint: typeof IMAGE_GENERATION_ENDPOINT | typeof IMAGE_EDIT_ENDPOINT
+) {
+  const models = getImageModels(options, endpoint)
+  const preferredModels =
+    endpoint === IMAGE_EDIT_ENDPOINT
+      ? PREFERRED_IMAGE_EDIT_MODELS
+      : PREFERRED_IMAGE_MODELS
+  const fallbackModels =
+    endpoint === IMAGE_EDIT_ENDPOINT ? FALLBACK_EDIT_MODEL_OPTIONS : FALLBACK_MODEL_OPTIONS
+  for (const preferredModel of preferredModels) {
     if (
       models.includes(preferredModel) &&
       getTokensForModel(options, preferredModel).length > 0
@@ -269,7 +315,7 @@ function getPreferredImageModel(options: PlaygroundOptions | undefined) {
   }
   return models.find((modelName) => getTokensForModel(options, modelName).length > 0)
     ?? models[0]
-    ?? FALLBACK_MODEL_OPTIONS[0]
+    ?? (options ? '' : fallbackModels[0])
 }
 
 function getTokenLabel(token: PlaygroundTokenOption) {
@@ -550,7 +596,10 @@ async function editImageWithToken(
   formData.append('n', String(input.n))
   formData.append('size', input.size)
   formData.append('quality', input.quality)
-  formData.append('response_format', 'url')
+  const responseFormat = getImageResponseFormat(input.model)
+  if (responseFormat) {
+    formData.append('response_format', responseFormat)
+  }
 
   const files = await Promise.all(
     references.map((reference, index) => referenceToFile(reference, index + 1))
@@ -691,10 +740,20 @@ export function ImageGeneration() {
     },
   })
 
+  const hasReferenceImages = referenceImages.length > 0
+  const activeImageEndpoint = hasReferenceImages
+    ? IMAGE_EDIT_ENDPOINT
+    : IMAGE_GENERATION_ENDPOINT
+
   const modelOptions = useMemo(() => {
-    const models = getImageModels(optionsQuery.data)
-    return models.length > 0 ? models : FALLBACK_MODEL_OPTIONS
-  }, [optionsQuery.data])
+    const models = getImageModels(optionsQuery.data, activeImageEndpoint)
+    if (models.length > 0) return models
+    return optionsQuery.data
+      ? []
+      : activeImageEndpoint === IMAGE_EDIT_ENDPOINT
+        ? FALLBACK_EDIT_MODEL_OPTIONS
+        : FALLBACK_MODEL_OPTIONS
+  }, [activeImageEndpoint, optionsQuery.data])
 
   const availableKeys = useMemo(
     () => getTokensForModel(optionsQuery.data, model),
@@ -738,20 +797,38 @@ export function ImageGeneration() {
   const endpointLabel = getEndpointLabel(status?.server_address)
   const runningTaskCount = tasks.filter(isActiveTask).length
   const hasRunningTask = runningTaskCount > 0
-  const canSubmit = Boolean(prompt.trim())
+  const modelSupportsActiveEndpoint =
+    modelOptions.includes(model) &&
+    supportsImageEndpoint(optionsQuery.data, model, activeImageEndpoint)
+  const canSubmit = Boolean(prompt.trim() && selectedKey && modelSupportsActiveEndpoint)
+  const modelCapabilityMessage =
+    hasReferenceImages && modelOptions.length === 0
+      ? t('No image edit models available for the current account.')
+      : hasReferenceImages && !modelSupportsActiveEndpoint
+        ? t('Selected model does not support image editing.')
+        : undefined
 
   useEffect(() => {
     if (!optionsQuery.data) return
-    const preferredModel = getPreferredImageModel(optionsQuery.data)
+    const preferredModel = getPreferredImageModel(
+      optionsQuery.data,
+      activeImageEndpoint
+    )
     if (!modelInitialized) {
-      setModel(preferredModel)
+      if (preferredModel) setModel(preferredModel)
       setModelInitialized(true)
       return
     }
     if (!modelOptions.includes(model)) {
       setModel(preferredModel)
     }
-  }, [model, modelInitialized, modelOptions, optionsQuery.data])
+  }, [
+    activeImageEndpoint,
+    model,
+    modelInitialized,
+    modelOptions,
+    optionsQuery.data,
+  ])
 
   useEffect(() => {
     const currentTokenValid =
@@ -772,8 +849,12 @@ export function ImageGeneration() {
       return
     }
     if (optionsQuery.data) {
-      const preferredModel = getPreferredImageModel(optionsQuery.data)
+      const preferredModel = getPreferredImageModel(
+        optionsQuery.data,
+        activeImageEndpoint
+      )
       if (
+        preferredModel &&
         model !== preferredModel &&
         getTokensForModel(optionsQuery.data, preferredModel).length > 0
       ) {
@@ -786,6 +867,7 @@ export function ImageGeneration() {
     }
   }, [
     availableKeys.length,
+    activeImageEndpoint,
     keyGuideAutoOpened,
     model,
     optionsQuery.data,
@@ -823,9 +905,14 @@ export function ImageGeneration() {
     }
 
     const mode = references.length > 0 ? 'edit' : 'generate'
+    if (mode === 'edit' && !supportsImageEndpoint(optionsQuery.data, input.model, IMAGE_EDIT_ENDPOINT)) {
+      toast.error(t('Selected model does not support image editing.'))
+      return
+    }
 
     let submitted: ImageTaskSubmitResponse
     try {
+      const responseFormat = getImageResponseFormat(input.model)
       submitted =
         mode === 'edit'
           ? await editImageWithToken(
@@ -841,7 +928,7 @@ export function ImageGeneration() {
               n: input.n,
               size: input.size,
               quality: input.quality,
-              response_format: 'url',
+              ...(responseFormat ? { response_format: responseFormat } : {}),
             })
     } catch (error) {
       const message = getErrorMessage(error, t)
@@ -894,6 +981,13 @@ export function ImageGeneration() {
   const submitCurrent = () => {
     if (!selectedKey) {
       setKeyGuideOpen(true)
+      return
+    }
+    if (!modelSupportsActiveEndpoint) {
+      toast.error(
+        modelCapabilityMessage ||
+          t('Selected model does not support image editing.')
+      )
       return
     }
 
@@ -1163,6 +1257,15 @@ export function ImageGeneration() {
           </Alert>
         )}
 
+        {hasReferenceImages && modelOptions.length === 0 && !optionsQuery.isLoading && (
+          <Alert variant='destructive' className='mb-4'>
+            <AlertTitle>{t('No image edit models available')}</AlertTitle>
+            <AlertDescription>
+              {t('Remove reference images or ask the administrator to enable image-edit for this model.')}
+            </AlertDescription>
+          </Alert>
+        )}
+
         {runningTaskCount > 0 && (
           <Alert className='mb-4'>
             <Loader2 className='size-4 animate-spin' aria-hidden='true' />
@@ -1194,6 +1297,7 @@ export function ImageGeneration() {
         isLoadingKeys={optionsQuery.isLoading}
         mobileParamsOpen={mobileParamsOpen}
         model={model}
+        modelCapabilityMessage={modelCapabilityMessage}
         modelOptions={modelOptions}
         prompt={prompt}
         promptRef={promptRef}
@@ -1667,6 +1771,7 @@ function FloatingInputBar(props: {
   isLoadingKeys: boolean
   mobileParamsOpen: boolean
   model: string
+  modelCapabilityMessage?: string
   modelOptions: string[]
   prompt: string
   promptRef: RefObject<HTMLTextAreaElement | null>
@@ -1696,13 +1801,20 @@ function FloatingInputBar(props: {
       <ParamSelect
         label={t('Model')}
         value={props.model}
+        disabled={props.modelOptions.length === 0}
         onChange={props.onModelChange}
       >
-        {props.modelOptions.map((item) => (
-          <NativeSelectOption key={item} value={item}>
-            {item}
+        {props.modelOptions.length === 0 ? (
+          <NativeSelectOption value=''>
+            {t('No image edit models available')}
           </NativeSelectOption>
-        ))}
+        ) : (
+          props.modelOptions.map((item) => (
+            <NativeSelectOption key={item} value={item}>
+              {item}
+            </NativeSelectOption>
+          ))
+        )}
       </ParamSelect>
       <ParamSelect
         label={t('API Key')}
@@ -1867,6 +1979,11 @@ function FloatingInputBar(props: {
                 )}
               </div>
             </div>
+          )}
+          {props.modelCapabilityMessage && (
+            <p className='text-destructive mb-2 text-xs'>
+              {props.modelCapabilityMessage}
+            </p>
           )}
 
           <div className='relative grid'>

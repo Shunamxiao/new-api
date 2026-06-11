@@ -179,7 +179,7 @@ func TestBuildPlaygroundOptionsReturnsUsableMaskedTokens(t *testing.T) {
 	require.Equal(t, []string{"gpt-image-2"}, options.Tokens[0].AllowedModels)
 	require.Equal(
 		t,
-		[]string{string(constant.EndpointTypeImageGeneration)},
+		[]string{string(constant.EndpointTypeImageGeneration), string(constant.EndpointTypeImageEdit)},
 		options.ModelEndpoints["gpt-image-2"],
 	)
 }
@@ -193,6 +193,9 @@ func TestValidatePlaygroundEndpointChecksRouteCompatibility(t *testing.T) {
 	require.NoError(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
 		Model: "gpt-image-2",
 	}, "/pg/images/generations"))
+	require.NoError(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "gpt-image-2",
+	}, "/pg/images/edits"))
 
 	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
 		Model: "gpt-image-2",
@@ -203,4 +206,7 @@ func TestValidatePlaygroundEndpointChecksRouteCompatibility(t *testing.T) {
 	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
 		Model: "gpt-4o",
 	}, "/pg/images/generations"))
+	require.Error(t, ValidatePlaygroundEndpoint(dto.PlayGroundRequest{
+		Model: "dall-e-3",
+	}, "/pg/images/edits"))
 }

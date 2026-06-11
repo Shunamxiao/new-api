@@ -262,11 +262,16 @@ func ValidatePlaygroundEndpoint(req dto.PlayGroundRequest, path string) error {
 			return nil
 		}
 		return fmt.Errorf("模型 %s 不支持文本游乐场，请选择支持 Chat Completions 的模型", req.Model)
-	case strings.HasPrefix(path, "/pg/images/generations"), strings.HasPrefix(path, "/pg/images/edits"):
+	case strings.HasPrefix(path, "/pg/images/generations"):
 		if IsPlaygroundImageModel(req.Model) {
 			return nil
 		}
 		return fmt.Errorf("模型 %s 不支持图片生成游乐场，请选择支持 Image Generation 的模型", req.Model)
+	case strings.HasPrefix(path, "/pg/images/edits"):
+		if IsPlaygroundImageEditModel(req.Model) {
+			return nil
+		}
+		return fmt.Errorf("模型 %s 不支持图生图，请选择支持 Image Edit 的模型", req.Model)
 	default:
 		return nil
 	}
@@ -287,12 +292,19 @@ func IsPlaygroundChatModel(modelName string) bool {
 }
 
 func IsPlaygroundImageModel(modelName string) bool {
-	if common.IsImageGenerationModel(modelName) {
-		return true
-	}
 	endpoints := GetPlaygroundModelEndpointTypes(modelName)
 	for _, endpoint := range endpoints {
 		if endpoint == constant.EndpointTypeImageGeneration {
+			return true
+		}
+	}
+	return false
+}
+
+func IsPlaygroundImageEditModel(modelName string) bool {
+	endpoints := GetPlaygroundModelEndpointTypes(modelName)
+	for _, endpoint := range endpoints {
+		if endpoint == constant.EndpointTypeImageEdit {
 			return true
 		}
 	}

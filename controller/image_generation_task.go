@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,7 +45,7 @@ type imageGenerationJSONPayload struct {
 	N              int    `json:"n"`
 	Size           string `json:"size"`
 	Quality        string `json:"quality"`
-	ResponseFormat string `json:"response_format"`
+	ResponseFormat string `json:"response_format,omitempty"`
 }
 
 func CreateImageGenerationTask(c *gin.Context) {
@@ -100,6 +102,10 @@ func submitImageGenerationTask(c *gin.Context, action string) {
 		err = service.ValidatePlaygroundToken(userID, userCache.Group, submitCtx.Playground, token)
 	}
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err = service.ValidatePlaygroundEndpoint(submitCtx.Playground, submitCtx.RelayPath); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -175,7 +181,11 @@ func buildImageTextSubmitContext(body []byte, contentType string) (*imageGenerat
 		payload.N = 1
 	}
 	if payload.ResponseFormat == "" {
-		payload.ResponseFormat = "url"
+		if shouldUseImageURLResponseFormat(payload.Model) {
+			payload.ResponseFormat = "url"
+		}
+	} else if !shouldSendImageResponseFormat(payload.Model, payload.ResponseFormat) {
+		payload.ResponseFormat = ""
 	}
 	normalizedBody, err := common.Marshal(payload)
 	if err != nil {
@@ -221,6 +231,17 @@ func buildImageEditSubmitContext(c *gin.Context, body []byte, contentType string
 	prompt := firstMultipartValue(form.Value, "prompt")
 	size := firstMultipartValue(form.Value, "size")
 	quality := firstMultipartValue(form.Value, "quality")
+	normalizedBody := body
+	normalizedContentType := contentType
+	responseFormat := firstMultipartValue(form.Value, "response_format")
+	if responseFormat != "" && !shouldSendImageResponseFormat(modelName, responseFormat) {
+		normalizedBody, normalizedContentType, err = rebuildImageEditMultipartBody(form, map[string]bool{
+			"response_format": true,
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	playground := dto.PlayGroundRequest{
 		Group:   group,
 		Model:   modelName,
@@ -230,8 +251,8 @@ func buildImageEditSubmitContext(c *gin.Context, body []byte, contentType string
 		Action:      dto.ImageGenerationActionEdit,
 		Mode:        "edit",
 		RelayPath:   "/pg/images/edits",
-		ContentType: contentType,
-		Body:        body,
+		ContentType: normalizedContentType,
+		Body:        normalizedBody,
 		Playground:  playground,
 		Input: dto.ImageGenerationTaskInput{
 			Mode:           "edit",
@@ -242,9 +263,82 @@ func buildImageEditSubmitContext(c *gin.Context, body []byte, contentType string
 			Quality:        quality,
 			N:              n,
 			TokenId:        tokenID,
-			ReferenceCount: len(form.File["image"]),
+			ReferenceCount: countImageEditReferences(form),
 		},
 	}, nil
+}
+
+func shouldUseImageURLResponseFormat(modelName string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(modelName))
+	return strings.Contains(normalized, "dall-e")
+}
+
+func shouldSendImageResponseFormat(modelName string, responseFormat string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(responseFormat))
+	if normalized == "" {
+		return false
+	}
+	if normalized == "url" {
+		return shouldUseImageURLResponseFormat(modelName)
+	}
+	return true
+}
+
+func rebuildImageEditMultipartBody(form *multipart.Form, skipFields map[string]bool) ([]byte, string, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+
+	for key, values := range form.Value {
+		if skipFields[key] {
+			continue
+		}
+		for _, value := range values {
+			if err := writer.WriteField(key, value); err != nil {
+				_ = writer.Close()
+				return nil, "", err
+			}
+		}
+	}
+
+	for _, files := range form.File {
+		for _, fileHeader := range files {
+			file, err := fileHeader.Open()
+			if err != nil {
+				_ = writer.Close()
+				return nil, "", err
+			}
+			part, err := writer.CreatePart(fileHeader.Header)
+			if err != nil {
+				_ = file.Close()
+				_ = writer.Close()
+				return nil, "", err
+			}
+			if _, err = io.Copy(part, file); err != nil {
+				_ = file.Close()
+				_ = writer.Close()
+				return nil, "", err
+			}
+			_ = file.Close()
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, "", err
+	}
+	return body.Bytes(), writer.FormDataContentType(), nil
+}
+
+func countImageEditReferences(form *multipart.Form) int {
+	if form == nil || form.File == nil {
+		return 0
+	}
+	count := 0
+	for fieldName, files := range form.File {
+		if fieldName == "image" || fieldName == "image[]" || strings.HasPrefix(fieldName, "image[") {
+			count += len(files)
+		}
+	}
+	return count
 }
 
 func runImageGenerationTask(taskID string, userID int, tokenID int, group string, relayPath string, contentType string, body []byte) {

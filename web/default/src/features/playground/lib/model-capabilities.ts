@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type { PlaygroundMode } from '../types'
 
 const CHAT_ENDPOINTS = new Set(['openai', 'anthropic', 'gemini'])
-const IMAGE_ENDPOINTS = new Set(['image-generation'])
+const IMAGE_ENDPOINTS = new Set(['image-generation', 'image-edit'])
 
 function normalizeModelName(modelName: string) {
   return modelName.trim().toLowerCase()

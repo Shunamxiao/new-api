@@ -26,11 +26,6 @@ import {
   GlobeIcon,
   SendIcon,
   SquareIcon,
-  BarChartIcon,
-  BoxIcon,
-  NotepadTextIcon,
-  CodeSquareIcon,
-  GraduationCapIcon,
   KeyRoundIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -60,7 +55,6 @@ import {
   PromptInputTools,
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input'
-import { Suggestion, Suggestions } from '@/components/ai-elements/suggestion'
 import { ModelGroupSelector } from '@/components/model-group-selector'
 import type {
   ModelOption,
@@ -98,14 +92,11 @@ interface PlaygroundInputProps {
 
 const imageSizeOptions = ['1024x1024', '1024x1536', '1536x1024', 'auto']
 const imageQualityOptions = ['auto', 'low', 'medium', 'high', 'standard', 'hd']
-
-const suggestions = [
-  { icon: BarChartIcon, text: 'Analyze data', color: '#76d0eb' },
-  { icon: BoxIcon, text: 'Surprise me', color: '#76d0eb' },
-  { icon: NotepadTextIcon, text: 'Summarize text', color: '#ea8444' },
-  { icon: CodeSquareIcon, text: 'Code', color: '#6c71ff' },
-  { icon: GraduationCapIcon, text: 'Get advice', color: '#76d0eb' },
-  { icon: null, text: 'More' },
+const quickPrompts = [
+  'What model are you currently using?',
+  'Are you still online?',
+  'What capabilities do you support?',
+  'Please introduce yourself in one sentence.',
 ]
 
 export function PlaygroundInput({
@@ -158,15 +149,6 @@ export function PlaygroundInput({
     toast.info(t('Feature in development'), {
       description: action,
     })
-  }
-
-  const handleSuggestionClick = (suggestion: string) => {
-    if (submitDisabledReason) {
-      toast.error(submitDisabledReason)
-      return
-    }
-    if (!canSubmit) return
-    onSubmit(suggestion)
   }
 
   return (
@@ -277,6 +259,22 @@ export function PlaygroundInput({
           </div>
         )}
       </div>
+
+      {mode === 'chat' && (
+        <div className='flex flex-wrap gap-2 px-1'>
+          {quickPrompts.map((prompt) => (
+            <button
+              key={prompt}
+              type='button'
+              disabled={!canSubmit}
+              onClick={() => setText(t(prompt))}
+              className='border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 disabled:hover:bg-background disabled:hover:text-muted-foreground max-w-full rounded-md border px-2.5 py-1 text-xs font-medium transition-colors sm:text-sm'
+            >
+              <span className='line-clamp-1 break-all'>{t(prompt)}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       <PromptInput groupClassName='rounded-xl' onSubmit={handleSubmit}>
         <PromptInputTextarea
@@ -443,23 +441,6 @@ export function PlaygroundInput({
           {t('Create an API key that covers the selected group and model.')}
         </div>
       ) : null}
-
-      <Suggestions>
-        {suggestions.map(({ icon: Icon, text, color }) => (
-          <Suggestion
-            className={`text-xs font-normal sm:text-sm ${
-              text === 'More' ? 'hidden sm:flex' : ''
-            }`}
-            key={text}
-            onClick={() => handleSuggestionClick(text)}
-            suggestion={text}
-            disabled={!canSubmit}
-          >
-            {Icon && <Icon size={16} style={{ color }} />}
-            {text}
-          </Suggestion>
-        ))}
-      </Suggestions>
     </div>
   )
 }

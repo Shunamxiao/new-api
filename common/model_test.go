@@ -8,8 +8,14 @@ import (
 
 func TestGetEndpointTypesByChannelTypeGptImage2(t *testing.T) {
 	endpoints := GetEndpointTypesByChannelType(0, "gpt-image-2")
-	if len(endpoints) == 0 || endpoints[0] != constant.EndpointTypeImageGeneration {
-		t.Fatalf("gpt-image-2 endpoints = %#v, want image-generation first", endpoints)
+	want := []constant.EndpointType{constant.EndpointTypeImageGeneration, constant.EndpointTypeImageEdit}
+	if len(endpoints) != len(want) {
+		t.Fatalf("gpt-image-2 endpoints = %#v, want %#v", endpoints, want)
+	}
+	for i := range want {
+		if endpoints[i] != want[i] {
+			t.Fatalf("gpt-image-2 endpoints = %#v, want %#v", endpoints, want)
+		}
 	}
 }
 

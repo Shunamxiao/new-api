@@ -6,7 +6,11 @@ import "github.com/QuantumNous/new-api/constant"
 func GetEndpointTypesByChannelType(channelType int, modelName string) []constant.EndpointType {
 	var endpointTypes []constant.EndpointType
 	if IsImageGenerationModel(modelName) {
-		return []constant.EndpointType{constant.EndpointTypeImageGeneration}
+		endpointTypes = []constant.EndpointType{constant.EndpointTypeImageGeneration}
+		if IsImageEditModel(modelName) {
+			endpointTypes = append(endpointTypes, constant.EndpointTypeImageEdit)
+		}
+		return endpointTypes
 	}
 	if IsRerankModel(modelName) {
 		return []constant.EndpointType{constant.EndpointTypeJinaRerank}

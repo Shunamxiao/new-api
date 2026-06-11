@@ -51,6 +51,12 @@ func IsImageGenerationModel(modelName string) bool {
 	return false
 }
 
+func IsImageEditModel(modelName string) bool {
+	modelName = strings.ToLower(modelName)
+	return strings.Contains(modelName, "gpt-image-") ||
+		strings.Contains(modelName, "dall-e-2")
+}
+
 func IsOpenAITextModel(modelName string) bool {
 	modelName = strings.ToLower(modelName)
 	for _, m := range OpenAITextModels {

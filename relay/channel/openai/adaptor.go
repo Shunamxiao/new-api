@@ -489,11 +489,8 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 					return nil, fmt.Errorf("failed to open image file %d: %w", i, err)
 				}
 
-				// If multiple images, use image[] as the field name
+				// OpenAI 兼容图片编辑接口支持重复的 image 字段，多图场景保持字段名不变。
 				fieldName := "image"
-				if len(imageFiles) > 1 {
-					fieldName = "image[]"
-				}
 
 				// Determine MIME type based on file extension
 				mimeType := detectImageMimeType(fileHeader.Filename)
@@ -505,10 +502,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 
 				part, err := writer.CreatePart(h)
 				if err != nil {
+					_ = file.Close()
 					return nil, fmt.Errorf("create form part failed for image %d: %w", i, err)
 				}
 
 				if _, err := io.Copy(part, file); err != nil {
+					_ = file.Close()
 					return nil, fmt.Errorf("copy file failed for image %d: %w", i, err)
 				}
 
@@ -534,10 +533,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 
 				maskPart, err := writer.CreatePart(h)
 				if err != nil {
+					_ = maskFile.Close()
 					return nil, errors.New("create form file failed for mask")
 				}
 
 				if _, err := io.Copy(maskPart, maskFile); err != nil {
+					_ = maskFile.Close()
 					return nil, errors.New("copy mask file failed")
 				}
 				_ = maskFile.Close()
